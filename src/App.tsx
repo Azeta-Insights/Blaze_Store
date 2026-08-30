@@ -781,19 +781,29 @@ export default function App() {
           {activeTab !== 'home' ? (
             <StoreViews
               activeTab={activeTab}
+              setActiveTab={(tab) => {
+                setActiveTab(tab);
+                if (tab === 'wishlist') setIsWishlistOpen(true);
+              }}
               onNavigateTab={(tab) => {
                 setActiveTab(tab);
                 if (tab === 'wishlist') setIsWishlistOpen(true);
+              }}
+              selectedCategory={selectedCategory}
+              setSelectedCategory={(catId) => {
+                setSelectedCategory(catId);
+                setActiveTab('categories');
               }}
               onSelectCategory={(catId) => {
                 setSelectedCategory(catId);
                 setActiveTab('categories');
               }}
-              selectedCategory={selectedCategory}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               allProducts={allProducts}
+              products={allProducts}
               dealsProducts={dealsProducts}
+              recommendedProducts={recProducts}
               recProducts={recProducts}
               onAddToCart={handleAddToCart}
               onToggleWishlist={handleToggleWishlist}
@@ -802,6 +812,7 @@ export default function App() {
               currentUser={currentUser}
               onOpenAuth={() => setIsAuthOpen(true)}
               onOpenSupport={() => setIsSupportOpen(true)}
+              onShowToast={showToast}
               isDarkMode={isDarkMode}
             />
           ) : (

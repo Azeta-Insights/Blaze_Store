@@ -31,39 +31,54 @@ import { CATEGORIES } from '../data/mockData';
 
 interface StoreViewsProps {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
-  products: Product[];
-  dealsProducts: Product[];
-  recommendedProducts: Product[];
-  selectedCategory: string;
-  setSelectedCategory: (cat: string) => void;
-  isWishlisted: (id: string) => boolean;
-  onToggleWishlist: (p: Product) => void;
-  onAddToCart: (p: Product, color?: string, qty?: number) => void;
-  onQuickView: (p: Product) => void;
+  setActiveTab?: (tab: string) => void;
+  onNavigateTab?: (tab: string) => void;
+  products?: Product[];
+  allProducts?: Product[];
+  dealsProducts?: Product[];
+  recommendedProducts?: Product[];
+  recProducts?: Product[];
+  selectedCategory?: string;
+  setSelectedCategory?: (cat: string) => void;
+  onSelectCategory?: (cat: string) => void;
+  searchQuery?: string;
+  setSearchQuery?: (q: string) => void;
+  isWishlisted?: (id: string) => boolean;
+  onToggleWishlist?: (p: Product) => void;
+  onAddToCart?: (p: Product, color?: string, qty?: number) => void;
+  onQuickView?: (p: Product) => void;
   currentUser?: User | null;
-  onOpenAuth: () => void;
-  onShowToast: (msg: string) => void;
-  isDarkMode: boolean;
+  onOpenAuth?: () => void;
+  onOpenSupport?: () => void;
+  onShowToast?: (msg: string) => void;
+  isDarkMode?: boolean;
 }
 
 export const StoreViews: React.FC<StoreViewsProps> = ({
   activeTab,
-  setActiveTab,
-  products,
-  dealsProducts,
-  recommendedProducts,
-  selectedCategory,
-  setSelectedCategory,
-  isWishlisted,
-  onToggleWishlist,
-  onAddToCart,
-  onQuickView,
+  setActiveTab: propSetActiveTab,
+  onNavigateTab,
+  products = [],
+  allProducts = [],
+  dealsProducts = [],
+  recommendedProducts = [],
+  recProducts = [],
+  selectedCategory = 'all',
+  setSelectedCategory: propSetSelectedCategory,
+  onSelectCategory,
+  isWishlisted = (_id: string) => false,
+  onToggleWishlist = (_p: Product) => {},
+  onAddToCart = (_p: Product, _color?: string, _qty?: number) => {},
+  onQuickView = (_p: Product) => {},
   currentUser,
-  onOpenAuth,
-  onShowToast,
-  isDarkMode,
+  onOpenAuth = () => {},
+  onOpenSupport = () => {},
+  onShowToast = (_msg: string) => {},
+  isDarkMode = false,
 }) => {
+  const setActiveTab = propSetActiveTab || onNavigateTab || (() => {});
+  const setSelectedCategory = propSetSelectedCategory || onSelectCategory || (() => {});
+
   const [sortBy, setSortBy] = useState<'featured' | 'price-low' | 'price-high' | 'rating' | 'discount'>('featured');
   const [inStockOnly, setInStockOnly] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
@@ -136,11 +151,16 @@ export const StoreViews: React.FC<StoreViewsProps> = ({
   // All combined unique products
   const allProductsList = useMemo(() => {
     const map = new Map<string, Product>();
-    [...dealsProducts, ...recommendedProducts, ...products].forEach((p) => {
-      if (!map.has(p.id)) map.set(p.id, p);
+    const sources = [allProducts, products, dealsProducts, recommendedProducts, recProducts];
+    sources.forEach((sourceList) => {
+      if (Array.isArray(sourceList)) {
+        sourceList.forEach((p) => {
+          if (p && p.id && !map.has(p.id)) map.set(p.id, p);
+        });
+      }
     });
     return Array.from(map.values());
-  }, [dealsProducts, recommendedProducts, products]);
+  }, [allProducts, products, dealsProducts, recommendedProducts, recProducts]);
 
   // Filtered and Sorted Products
   const processedProducts = useMemo(() => {

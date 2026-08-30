@@ -155,24 +155,28 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                           <Star
                             key={i}
                             className={`h-3.5 w-3.5 ${
-                              i < Math.floor(product.rating) ? 'fill-amber-500 text-amber-500' : 'text-slate-300 dark:text-slate-600'
+                              i < Math.floor(product.rating ?? 5) ? 'fill-amber-500 text-amber-500' : 'text-slate-300 dark:text-slate-600'
                             }`}
                           />
                         ))}
                       </div>
-                      <span className="text-xs font-extrabold text-slate-900 dark:text-white">{product.rating}</span>
-                      <span className="text-xs font-medium text-slate-500 underline">({product.reviewCount || 12} reviews)</span>
+                      <span className="text-xs font-extrabold text-slate-900 dark:text-white">
+                        {product.rating !== undefined ? product.rating : 4.8}
+                      </span>
+                      <span className="text-xs font-medium text-slate-500 underline">
+                        ({product.reviewCount !== undefined ? product.reviewCount : 12} reviews)
+                      </span>
                     </button>
                   </div>
 
                   {/* Price */}
                   <div className="mt-3 flex items-baseline gap-2">
                     <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-                      ${product.price.toFixed(2)}
+                      ${(product.price ?? 0).toFixed(2)}
                     </span>
-                    {product.originalPrice && (
+                    {product.originalPrice != null && (
                       <span className="text-sm text-slate-400 line-through font-semibold">
-                        ${product.originalPrice.toFixed(2)}
+                        ${Number(product.originalPrice).toFixed(2)}
                       </span>
                     )}
                     {product.discountPercentage && (
