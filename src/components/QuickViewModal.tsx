@@ -3,6 +3,7 @@ import { X, Star, ShoppingBag, Heart, ShieldCheck, Truck, RotateCcw, Check, Spar
 import { Product } from '../types';
 import { FrequentlyBoughtTogether } from './FrequentlyBoughtTogether';
 import { ProductReviewsSection } from './ProductReviewsSection';
+import { formatNaira } from '../lib/currency';
 
 interface QuickViewModalProps {
   product: Product | null;
@@ -170,13 +171,13 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                   </div>
 
                   {/* Price */}
-                  <div className="mt-3 flex items-baseline gap-2">
+                  <div className="mt-3 flex items-baseline gap-2 flex-wrap">
                     <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-                      ${(product.price ?? 0).toFixed(2)}
+                      {formatNaira(product.price ?? 0)}
                     </span>
                     {product.originalPrice != null && (
                       <span className="text-sm text-slate-400 line-through font-semibold">
-                        ${Number(product.originalPrice).toFixed(2)}
+                        {formatNaira(Number(product.originalPrice))}
                       </span>
                     )}
                     {product.discountPercentage && (
@@ -254,7 +255,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                       ) : (
                         <>
                           <ShoppingBag className="h-4 w-4" />
-                          <span>Add to Cart • ${(product.price * quantity).toFixed(2)}</span>
+                          <span>Add to Cart • {formatNaira(product.price * quantity)}</span>
                         </>
                       )}
                     </button>
@@ -274,15 +275,15 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                   </div>
 
                   {/* Guarantees */}
-                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 pt-1">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 pt-1 flex-wrap gap-2">
                     <span className="flex items-center gap-1">
                       <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> 100% Authentic
                     </span>
                     <span className="flex items-center gap-1">
-                      <Truck className="h-3.5 w-3.5 text-indigo-600" /> Free Global Delivery
+                      <Truck className="h-3.5 w-3.5 text-indigo-600" /> Fast Delivery in Nigeria
                     </span>
                     <span className="flex items-center gap-1">
-                      <RotateCcw className="h-3.5 w-3.5 text-sky-600" /> 30-Day Money Back
+                      <RotateCcw className="h-3.5 w-3.5 text-sky-600" /> 7-Day Money Back
                     </span>
                   </div>
                 </div>

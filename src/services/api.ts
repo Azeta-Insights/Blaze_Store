@@ -2157,12 +2157,169 @@ export const api = {
     return {
       found: true,
       order,
-      trackingNumber: `BLZ-FDX-${order.orderId.replace(/[^0-9]/g, '') || '98402'}`,
-      carrier: 'FedEx Priority International',
+      trackingNumber: `BLZ-GIG-${order.orderId.replace(/[^0-9]/g, '') || '98402'}`,
+      carrier: 'GIG Logistics / Red Star Express',
       estimatedDelivery: estDeliveryDate,
       steps,
     };
   },
+
+  // === Payment Processing API (Paystack Nigeria & Card Gateway) ===
+  async getPaymentConfig(): Promise<{
+    success: boolean;
+    currency?: string;
+    currencySymbol?: string;
+    gateway?: string;
+    paystackConfigured: boolean;
+    publicKey: string;
+    stripeConfigured: boolean;
+    stripePublishableKey: string;
+    supportedMethods: Array<{ id: string; name: string; enabled: boolean; live: boolean }>;
+  }> {
+    try {
+      const res = await fetch('/api/payments/config');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('[Payments] Config fetch fallback:', e);
+    }
+    return {
+      success: true,
+      currency: 'NGN',
+      currencySymbol: '₦',
+      gateway: 'paystack',
+      paystackConfigured: false,
+      publicKey: '',
+      stripeConfigured: false,
+      stripePublishableKey: '',
+      supportedMethods: [
+        { id: 'paystack', name: 'Pay with Paystack (Cards, Bank Transfer, USSD)', enabled: true, live: false },
+        { id: 'card', name: 'Debit / Credit Card (Mastercard, VISA, Verve)', enabled: true, live: false },
+        { id: 'bank-transfer', name: 'Nigerian Bank Direct Transfer (Instant)', enabled: true, live: true },
+        { id: 'ussd', name: 'USSD Bank Code (*737#, *966#)', enabled: true, live: true },
+        { id: 'cod', name: 'Pay on Delivery (Cash / POS at Door)', enabled: true, live: true },
+      ],
+    };
+  },
+
+  async initializePaystack(params: {
+    email: string;
+    amount: number; // in Naira (e.g. 50000)
+    reference?: string;
+    callbackUrl?: string;
+    channels?: string[];
+    metadata?: Record<string, any>;
+  }): Promise<{
+    success: boolean;
+    reference: string;
+    authorizationUrl?: string;
+    accessCode?: string;
+    isSimulation?: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const res = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      return await res.json();
+    } catch (err: any) {
+      return {
+        success: false,
+        reference: params.reference || `blz_sim_${Date.now()}`,
+        error: err?.message || 'Failed to initialize Paystack transaction',
+      };
+    }
+  },
+
+  async verifyPaystack(reference: string): Promise<{
+    success: boolean;
+    paid: boolean;
+    status: string;
+    amount?: number;
+    currency?: string;
+    channel?: string;
+    gatewayResponse?: string;
+    isSimulation?: boolean;
+    error?: string;
+  }> {
+    try {
+      const res = await fetch(`/api/paystack/verify/${encodeURIComponent(reference)}`);
+      return await res.json();
+    } catch (err: any) {
+      return {
+        success: false,
+        paid: false,
+        status: 'error',
+        error: err?.message || 'Verification network failure',
+      };
+    }
+  },
+
+  async createPaymentIntent(params: {
+    amount: number;
+    currency?: string;
+    orderId?: string;
+    customerEmail?: string;
+    customerName?: string;
+  }): Promise<{
+    success: boolean;
+    currency?: string;
+    clientSecret?: string;
+    paymentIntentId?: string;
+    reference?: string;
+    authorizationUrl?: string;
+    accessCode?: string;
+    isSimulation?: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const res = await fetch('/api/payments/create-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...params, currency: params.currency || 'ngn' }),
+      });
+      return await res.json();
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Network error connecting to payment gateway',
+      };
+    }
+  },
+
+  async confirmPayment(params: {
+    paymentIntentId?: string;
+    reference?: string;
+    orderId?: string;
+  }): Promise<{
+    success: boolean;
+    status: string;
+    paid: boolean;
+    isSimulation?: boolean;
+    error?: string;
+  }> {
+    try {
+      const res = await fetch('/api/payments/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      return await res.json();
+    } catch (err: any) {
+      return {
+        success: false,
+        status: 'failed',
+        paid: false,
+        error: err?.message || 'Payment confirmation error',
+      };
+    }
+  },
 };
+
 
 

@@ -20,6 +20,7 @@ import {
 import { CartItem, Product, User } from '../types';
 import { YOU_MIGHT_LIKE, RECENTLY_VIEWED } from '../data/mockData';
 import { UserProfileMenu } from './UserProfileMenu';
+import { formatNaira } from '../lib/currency';
 
 interface CartSidebarProps {
   cart: CartItem[];
@@ -74,7 +75,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const discountAmount = appliedPromo ? (subtotal * appliedPromo.percent) / 100 : 0;
-  const shipping = subtotal > 50 || subtotal === 0 ? 0 : 7.99;
+  const shipping = subtotal >= 50000 || subtotal === 0 ? 0 : 2500;
   const total = Math.max(0, subtotal - discountAmount + shipping);
   const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -92,14 +93,14 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
       setPromoCode('');
     } else if (clean === 'SUMMER50') {
       setAppliedPromo({ code: clean, percent: 50 });
-      setPromoSuccess('50% Summer Mega Coupon applied!');
+      setPromoSuccess('50% Super Promo applied!');
       setPromoCode('');
     } else if (clean === 'BLAZE10') {
       setAppliedPromo({ code: clean, percent: 10 });
       setPromoSuccess('10% Discount applied!');
       setPromoCode('');
     } else {
-      setPromoError('Invalid coupon code. Try BLAZE20 or SUMMER50');
+      setPromoError('Invalid coupon code. Try BLAZE20 or BLAZE10');
     }
   };
 
@@ -295,11 +296,11 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
                     <div className="flex items-center justify-between pt-1">
                       <div className="flex items-baseline gap-1">
                         <span className="text-xs font-extrabold text-[#7C6FE0]">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          {formatNaira(item.price * item.quantity)}
                         </span>
                         {item.originalPrice && (
                           <span className="text-[10px] text-[#64748B] dark:text-[#94A3B8] line-through font-medium">
-                            ${(item.originalPrice * item.quantity).toFixed(2)}
+                            {formatNaira(item.originalPrice * item.quantity)}
                           </span>
                         )}
                       </div>
@@ -369,27 +370,27 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
             <div className="flex justify-between text-[#475569] dark:text-[#94A3B8] font-semibold">
               <span>Subtotal</span>
               <span className="font-extrabold text-[#0F172A] dark:text-white">
-                ${subtotal.toFixed(2)}
+                {formatNaira(subtotal)}
               </span>
             </div>
 
             {appliedPromo && discountAmount > 0 && (
               <div className="flex justify-between text-[#DC2626] font-semibold">
                 <span>Discount ({appliedPromo.percent}%)</span>
-                <span className="font-extrabold">-${discountAmount.toFixed(2)}</span>
+                <span className="font-extrabold">-{formatNaira(discountAmount)}</span>
               </div>
             )}
 
             <div className="flex justify-between text-[#475569] dark:text-[#94A3B8] font-semibold">
-              <span>Shipping</span>
+              <span>Delivery</span>
               <span className="font-extrabold text-[#16A34A]">
-                {shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}
+                {shipping === 0 ? 'FREE' : formatNaira(shipping)}
               </span>
             </div>
 
             <div className="border-t border-[#CBD5E1] dark:border-[#27272A] pt-2 flex justify-between text-sm font-black text-[#0F172A] dark:text-white">
-              <span>Total</span>
-              <span className="text-[#7C6FE0] font-black">${total.toFixed(2)}</span>
+              <span>Total (NGN)</span>
+              <span className="text-[#7C6FE0] font-black">{formatNaira(total)}</span>
             </div>
 
             {/* Full-width Checkout Button */}
@@ -397,28 +398,28 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
               id="cart-checkout-btn"
               onClick={onOpenCheckout}
               disabled={cart.length === 0}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#A78BFA] to-[#7C6FE0] py-2.5 text-xs font-bold text-white shadow-md shadow-[#7C6FE0]/30 transition hover:opacity-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#A78BFA] to-[#7C6FE0] py-2.5 text-xs font-bold text-white shadow-md shadow-[#7C6FE0]/30 transition hover:opacity-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              <span>Checkout Now</span>
+              <span>Proceed to Checkout</span>
               <ArrowRight className="h-4 w-4" />
             </button>
 
             {/* Payment Method Badges */}
-            <div className="flex items-center justify-center gap-2 pt-2 text-[10px] text-[#475569] dark:text-[#94A3B8]">
+            <div className="flex items-center justify-center gap-1.5 pt-2 text-[10px] text-[#475569] dark:text-[#94A3B8] flex-wrap">
+              <span className="rounded bg-white dark:bg-[#27272A] px-1.5 py-0.5 font-bold border border-[#CBD5E1] dark:border-[#333]">
+                VERVE
+              </span>
               <span className="rounded bg-white dark:bg-[#27272A] px-1.5 py-0.5 font-bold border border-[#CBD5E1] dark:border-[#333]">
                 VISA
               </span>
               <span className="rounded bg-white dark:bg-[#27272A] px-1.5 py-0.5 font-bold border border-[#CBD5E1] dark:border-[#333]">
-                MC
+                MASTERCARD
               </span>
               <span className="rounded bg-white dark:bg-[#27272A] px-1.5 py-0.5 font-bold border border-[#CBD5E1] dark:border-[#333]">
-                PayPal
+                BANK TRANSFER
               </span>
               <span className="rounded bg-white dark:bg-[#27272A] px-1.5 py-0.5 font-bold border border-[#CBD5E1] dark:border-[#333]">
-                ApplePay
-              </span>
-              <span className="rounded bg-white dark:bg-[#27272A] px-1.5 py-0.5 font-bold border border-[#CBD5E1] dark:border-[#333]">
-                GPay
+                USSD
               </span>
             </div>
           </div>
@@ -445,7 +446,7 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-[#0F172A] dark:text-[#F8FAFC] truncate leading-tight">{prod.name}</p>
                     <p className="text-[11px] font-extrabold text-[#7C6FE0]">
-                      ${prod.price.toFixed(2)}
+                      {formatNaira(prod.price)}
                     </p>
                   </div>
                   <button

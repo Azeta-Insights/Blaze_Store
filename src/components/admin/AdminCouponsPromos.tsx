@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Coupon, AdminRole } from '../../types';
 import { api } from '../../services/api';
+import { formatNaira } from '../../lib/currency';
 
 interface AdminCouponsPromosProps {
   adminRole: AdminRole;
@@ -32,7 +33,7 @@ export function AdminCouponsPromos({ adminRole, onShowToast }: AdminCouponsPromo
   const [code, setCode] = useState('');
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [discountValue, setDiscountValue] = useState(15);
-  const [minOrderAmount, setMinOrderAmount] = useState(50);
+  const [minOrderAmount, setMinOrderAmount] = useState(10000);
   const [maxDiscountAmount, setMaxDiscountAmount] = useState<number | ''>('');
   const [usageLimit, setUsageLimit] = useState<number | ''>(500);
   const [expiryDate, setExpiryDate] = useState('');
@@ -78,7 +79,7 @@ export function AdminCouponsPromos({ adminRole, onShowToast }: AdminCouponsPromo
         maxDiscountAmount: maxDiscountAmount !== '' ? Number(maxDiscountAmount) : undefined,
         usageLimit: usageLimit !== '' ? Number(usageLimit) : undefined,
         expiryDate: expiryDate || undefined,
-        description: description.trim() || `${discountValue}${discountType === 'percentage' ? '%' : '$'} store discount`,
+        description: description.trim() || `${discountValue}${discountType === 'percentage' ? '%' : ' NGN'} store discount`,
         isActive: true,
       });
 
@@ -89,7 +90,7 @@ export function AdminCouponsPromos({ adminRole, onShowToast }: AdminCouponsPromo
       // Reset form
       setCode('');
       setDiscountValue(15);
-      setMinOrderAmount(50);
+      setMinOrderAmount(10000);
       setMaxDiscountAmount('');
       setDescription('');
     } catch (err: any) {
@@ -190,7 +191,7 @@ export function AdminCouponsPromos({ adminRole, onShowToast }: AdminCouponsPromo
                   <span className="text-2xl font-black text-slate-900 dark:text-white">
                     {coupon.discountType === 'percentage'
                       ? `${coupon.discountValue}% OFF`
-                      : `$${coupon.discountValue} OFF`}
+                      : `${formatNaira(coupon.discountValue)} OFF`}
                   </span>
                 </div>
 
@@ -200,7 +201,7 @@ export function AdminCouponsPromos({ adminRole, onShowToast }: AdminCouponsPromo
 
                 <div className="text-[11px] text-slate-500 space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800">
                   {coupon.minOrderAmount ? (
-                    <p>• Min. Cart Spend: <strong>${coupon.minOrderAmount.toFixed(2)}</strong></p>
+                    <p>• Min. Cart Spend: <strong>{formatNaira(coupon.minOrderAmount)}</strong></p>
                   ) : (
                     <p>• No minimum spend requirement</p>
                   )}
@@ -303,19 +304,19 @@ export function AdminCouponsPromos({ adminRole, onShowToast }: AdminCouponsPromo
                           : 'border-slate-200 dark:border-slate-700 text-slate-500'
                       }`}
                     >
-                      <DollarSign className="w-3.5 h-3.5" /> Fixed Amount
+                      <span className="font-bold text-xs">₦</span> Fixed Amount
                     </button>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Discount Value {discountType === 'percentage' ? '(%)' : '($)'} *
+                    Discount Value {discountType === 'percentage' ? '(%)' : '(₦)'} *
                   </label>
                   <input
                     type="number"
                     min={1}
-                    max={discountType === 'percentage' ? 100 : 1000}
+                    max={discountType === 'percentage' ? 100 : 1000000}
                     required
                     value={discountValue}
                     onChange={(e) => setDiscountValue(Number(e.target.value))}
@@ -327,7 +328,7 @@ export function AdminCouponsPromos({ adminRole, onShowToast }: AdminCouponsPromo
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Min. Order Amount ($)
+                    Min. Order Amount (₦)
                   </label>
                   <input
                     type="number"

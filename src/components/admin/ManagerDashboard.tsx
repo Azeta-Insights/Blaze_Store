@@ -300,7 +300,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                   <h3 className="font-extrabold text-sm">3. Support Refunds (RBAC Policy)</h3>
                 </div>
                 <p className="text-xs text-[#8A8A94] leading-relaxed">
-                  Managers can authorize customer support refunds up to <strong>$200.00</strong> without prior approval. Refunds above $200.00 are automatically routed to the Store Owner queue.
+                  Managers can authorize customer support refunds up to <strong>₦100,000.00</strong> without prior approval. Refunds above ₦100,000.00 are automatically routed to the Store Owner queue.
                 </p>
                 <div className="rounded-xl bg-[#F7F7FA] dark:bg-[#202024] p-3 text-[11px] font-semibold text-[#52525B] dark:text-[#A1A1AA]">
                   🔒 RBAC Enforced: Raw revenue export and user permissions are reserved for Store Owners.

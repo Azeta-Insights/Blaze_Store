@@ -16,6 +16,7 @@ import {
 import { Order } from '../types';
 import { api } from '../services/api';
 import { InvoiceModal } from './InvoiceModal';
+import { formatNaira } from '../lib/currency';
 
 interface OrderTrackingModalProps {
   isOpen: boolean;
@@ -258,7 +259,7 @@ export function OrderTrackingModal({
                               {item.name}
                             </p>
                             <span className="text-slate-400 text-[11px]">
-                              Qty: {item.quantity} • ${(item.price * item.quantity).toFixed(2)}
+                              Qty: {item.quantity} • {formatNaira(item.price * item.quantity)}
                             </span>
                           </div>
                         </div>

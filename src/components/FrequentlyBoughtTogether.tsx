@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Check, ShoppingBag, Sparkles } from 'lucide-react';
 import { Product } from '../types';
+import { formatNaira } from '../lib/currency';
 
 interface FrequentlyBoughtTogetherProps {
   mainProduct: Product;
@@ -123,7 +124,7 @@ export function FrequentlyBoughtTogether({
                   {item.name}
                 </span>
                 <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                  ${item.price.toFixed(2)}
+                  {formatNaira(item.price)}
                 </span>
               </div>
             </React.Fragment>
@@ -134,22 +135,22 @@ export function FrequentlyBoughtTogether({
       {/* Pricing & Add Bundle Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
         <div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Bundle Price ({activeBundleItems.length} items):
             </span>
             <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-              ${discountedTotal.toFixed(2)}
+              {formatNaira(discountedTotal)}
             </span>
             {bundleDiscountPercent > 0 && (
               <span className="text-xs line-through text-slate-400">
-                ${rawTotal.toFixed(2)}
+                {formatNaira(rawTotal)}
               </span>
             )}
           </div>
           {savings > 0 && (
             <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-              You save ${savings.toFixed(2)} with instant bundle discount!
+              You save {formatNaira(savings)} with instant bundle discount!
             </p>
           )}
         </div>

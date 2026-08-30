@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Star, ShoppingBag, Plus, Check } from 'lucide-react';
 import { Product } from '../types';
+import { formatNaira } from '../lib/currency';
 
 interface ProductCardProps {
   product: Product;
@@ -147,13 +148,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Pricing & Add To Cart Button */}
       <div className="pt-3 flex items-center justify-between border-t border-[#E2E8F0] dark:border-[#27272A] mt-2">
         <div className="flex flex-col">
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className="text-sm sm:text-base font-extrabold text-[#7C6FE0]">
-              ${product.price.toFixed(2)}
+              {formatNaira(product.price)}
             </span>
             {product.originalPrice && (
               <span className="text-xs text-[#64748B] dark:text-[#94A3B8] line-through font-semibold">
-                ${product.originalPrice.toFixed(2)}
+                {formatNaira(product.originalPrice)}
               </span>
             )}
           </div>

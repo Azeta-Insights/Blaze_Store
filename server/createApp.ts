@@ -48,6 +48,19 @@ import {
   uploadImageToCloudinary,
   getCloudinaryStatus,
 } from './cloudinary';
+import {
+  getStripe,
+  isStripeConfigured,
+  getStripePublishableKey,
+} from './stripe';
+import {
+  isPaystackConfigured,
+  getPaystackPublicKey,
+  initializePaystackTransaction,
+  verifyPaystackTransaction,
+  verifyPaystackWebhookSignature,
+} from './paystack';
+
 
 dotenv.config();
 
@@ -225,6 +238,161 @@ export function createApp() {
       res.status(500).json({ success: false, error: err?.message });
     }
   });
+
+  // === 5b. Payment Gateway & Paystack (Nigeria NGN) Processing API ===
+  apiRouter.get('/payments/config', (req, res) => {
+    res.json({
+      success: true,
+      currency: 'NGN',
+      currencySymbol: '₦',
+      gateway: 'paystack',
+      paystackConfigured: isPaystackConfigured(),
+      publicKey: getPaystackPublicKey(),
+      stripeConfigured: isStripeConfigured(),
+      stripePublishableKey: getStripePublishableKey(),
+      supportedMethods: [
+        { id: 'paystack', name: 'Pay with Paystack (Cards, Bank Transfer, USSD, Apple Pay)', enabled: true, live: isPaystackConfigured() },
+        { id: 'card', name: 'Debit / Credit Card (Mastercard, VISA, Verve)', enabled: true, live: isPaystackConfigured() },
+        { id: 'bank-transfer', name: 'Nigerian Bank Direct Transfer (Instant)', enabled: true, live: true },
+        { id: 'ussd', name: 'USSD Bank Code (*737#, *966#, *901#)', enabled: true, live: true },
+        { id: 'cod', name: 'Pay on Delivery (Cash / POS at Door)', enabled: true, live: true },
+      ],
+    });
+  });
+
+  // Paystack Initialize Route
+  apiRouter.post('/paystack/initialize', async (req, res) => {
+    try {
+      const { email, amount, reference, callbackUrl, metadata, channels } = req.body || {};
+      if (!email || !amount || Number(amount) <= 0) {
+        return res.status(400).json({ success: false, error: 'Valid email and amount are required.' });
+      }
+
+      // Convert Naira amount to Kobo (1 Naira = 100 Kobo)
+      const amountInKobo = Math.round(Number(amount) * 100);
+
+      const result = await initializePaystackTransaction({
+        email,
+        amount: amountInKobo,
+        reference,
+        callbackUrl,
+        channels,
+        metadata,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      console.error('[Paystack Init Endpoint Error]:', err);
+      res.status(500).json({ success: false, error: err?.message || 'Failed to initialize Paystack payment' });
+    }
+  });
+
+  // Paystack Verify Route
+  apiRouter.get('/paystack/verify/:reference', async (req, res) => {
+    try {
+      const { reference } = req.params;
+      if (!reference) {
+        return res.status(400).json({ success: false, error: 'Payment reference is required.' });
+      }
+
+      const result = await verifyPaystackTransaction(reference);
+      res.json(result);
+    } catch (err: any) {
+      console.error('[Paystack Verify Endpoint Error]:', err);
+      res.status(500).json({ success: false, error: err?.message || 'Failed to verify Paystack payment' });
+    }
+  });
+
+  // Paystack Webhook Handler
+  apiRouter.post('/paystack/webhook', async (req, res) => {
+    try {
+      const signature = req.headers['x-paystack-signature'] as string;
+      const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+
+      if (signature && isPaystackConfigured()) {
+        const isValid = verifyPaystackWebhookSignature(rawBody, signature);
+        if (!isValid) {
+          console.warn('[Paystack Webhook] Invalid signature rejected');
+          return res.status(400).json({ status: 'error', message: 'Invalid webhook signature' });
+        }
+      }
+
+      const event = req.body;
+      if (event?.event === 'charge.success') {
+        const reference = event.data?.reference;
+        const amount = event.data?.amount;
+        console.log(`[Paystack Webhook] Successful payment for ref: ${reference}, amount: ${amount}`);
+      }
+
+      res.status(200).json({ status: 'success' });
+    } catch (err: any) {
+      console.error('[Paystack Webhook Error]:', err);
+      res.status(500).json({ status: 'error', message: err?.message });
+    }
+  });
+
+  // Backward compatibility alias endpoints
+  apiRouter.post('/payments/create-intent', async (req, res) => {
+    try {
+      const { amount, orderId, customerEmail, customerName } = req.body || {};
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ success: false, error: 'Valid amount is required.' });
+      }
+
+      const amountInKobo = Math.round(Number(amount) * 100);
+      const ref = `blz_${orderId || Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      const paystackResult = await initializePaystackTransaction({
+        email: customerEmail || 'customer@example.com',
+        amount: amountInKobo,
+        reference: ref,
+        metadata: {
+          orderId,
+          customerName,
+          customerEmail,
+        },
+      });
+
+      res.json({
+        success: true,
+        currency: 'NGN',
+        reference: paystackResult.reference,
+        authorizationUrl: paystackResult.authorizationUrl,
+        accessCode: paystackResult.accessCode,
+        isSimulation: paystackResult.isSimulation,
+        paymentIntentId: paystackResult.reference,
+        message: paystackResult.message,
+      });
+    } catch (err: any) {
+      console.error('[Payment Create Error]:', err);
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Failed to initialize payment gateway',
+      });
+    }
+  });
+
+  apiRouter.post('/payments/confirm-payment', async (req, res) => {
+    try {
+      const { paymentIntentId, reference } = req.body || {};
+      const refToVerify = reference || paymentIntentId;
+
+      if (!refToVerify) {
+        return res.json({ success: true, status: 'success', paid: true, isSimulation: true });
+      }
+
+      const verifyResult = await verifyPaystackTransaction(refToVerify);
+      res.json({
+        success: verifyResult.success,
+        status: verifyResult.status,
+        paid: verifyResult.paid,
+        isSimulation: verifyResult.isSimulation,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message || 'Payment confirmation error' });
+    }
+  });
+
 
   // 6. Notifications API
   apiRouter.get('/notifications', async (req, res) => {

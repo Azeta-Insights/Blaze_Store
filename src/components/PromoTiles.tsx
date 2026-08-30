@@ -107,7 +107,7 @@ export const PromoTiles: React.FC<PromoTilesProps> = ({ onTileClick }) => {
             <h4 className="text-base font-extrabold text-[#1F1F23] leading-tight">
               Free Express Shipping
             </h4>
-            <p className="text-xs text-[#52525B] mt-0.5">On all domestic orders over $50.00</p>
+            <p className="text-xs text-[#52525B] mt-0.5">On all orders across Nigeria over ₦50,000</p>
           </div>
 
           <div className="rounded-lg bg-white/80 p-2 text-[11px] text-[#2E7D32] font-semibold border border-[#2E7D32]/10">

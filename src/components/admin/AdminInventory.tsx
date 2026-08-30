@@ -25,6 +25,7 @@ import { Product, AdminRole } from '../../types';
 import { api } from '../../services/api';
 import { ImageUploader } from '../ImageUploader';
 import { ConfirmDeleteModal } from '../ConfirmDeleteModal';
+import { formatNaira } from '../../lib/currency';
 
 interface AdminInventoryProps {
   adminRole: AdminRole;
@@ -134,9 +135,9 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     setFormData({
       name: '',
       category: 'Fashion',
-      price: '49.99',
-      costPrice: '22.00',
-      originalPrice: '69.99',
+      price: '45000',
+      costPrice: '20000',
+      originalPrice: '60000',
       stockQuantity: '35',
       sku: `BLZ-FAS-${Math.floor(1000 + Math.random() * 9000)}`,
       image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=80',
@@ -308,7 +309,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
           if (cols.length >= 4) {
             const [id, name, category, priceStr, stockStr, sku, inStockStr] = cols;
             if (name && priceStr) {
-              const itemPrice = parseFloat(priceStr) || 29.99;
+              const itemPrice = parseFloat(priceStr) || 25000;
               const itemStock = parseInt(stockStr, 10) || 20;
               const productObj: Product = {
                 id: id || `imp-${Date.now()}-${i}`,
@@ -542,7 +543,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
         >
           <span className="text-[11px] font-bold text-[#8A8A94] uppercase tracking-wider block">Stock Asset Value</span>
           <span className="text-xl font-black mt-1 block text-[#7C6FE0]">
-            ${totalInventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatNaira(totalInventoryValue)}
           </span>
           <span className="text-[10px] text-[#8A8A94] font-medium">Retail Value</span>
         </div>
@@ -658,7 +659,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 
                       {/* Price */}
                       <td className="py-3 px-4 text-right font-bold text-[#7C6FE0]">
-                        ${p.price.toFixed(2)}
+                        {formatNaira(p.price)}
                       </td>
 
                       {/* Stock units with badge */}
@@ -830,26 +831,26 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[11px] font-bold text-[#8A8A94] block mb-1">Retail Price ($) *</label>
+                  <label className="text-[11px] font-bold text-[#8A8A94] block mb-1">Retail Price (₦) *</label>
                   <input
                     type="number"
                     step="0.01"
                     required
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    placeholder="49.99"
+                    placeholder="45000"
                     className="w-full rounded-xl border border-[#EDEDF2] dark:border-[#27272A] bg-[#FAF9FC] dark:bg-[#202024] px-3 py-2 text-xs font-bold text-[#7C6FE0] focus:outline-none focus:ring-1 focus:ring-[#7C6FE0]"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-[#8A8A94] block mb-1">Cost Price ($)</label>
+                  <label className="text-[11px] font-bold text-[#8A8A94] block mb-1">Cost Price (₦)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.costPrice}
                     onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
-                    placeholder="22.00"
+                    placeholder="20000"
                     className="w-full rounded-xl border border-[#EDEDF2] dark:border-[#27272A] bg-[#FAF9FC] dark:bg-[#202024] px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#7C6FE0]"
                   />
                 </div>

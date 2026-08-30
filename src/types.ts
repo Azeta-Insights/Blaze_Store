@@ -97,6 +97,7 @@ export interface OrderCustomer {
   phone?: string;
   address?: string;
   city?: string;
+  state?: string;
   zip?: string;
   paymentMethod?: string;
 }
@@ -121,6 +122,7 @@ export interface Order {
   discount: number;
   shipping: number;
   total: number;
+  paymentMethod?: string;
   status: OrderStatus;
   createdAt: string | Date;
   userId?: string;

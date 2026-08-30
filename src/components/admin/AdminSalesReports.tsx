@@ -29,6 +29,7 @@ import {
   Legend
 } from 'recharts';
 import { SalesAnalytics, AdminRole } from '../../types';
+import { formatNaira } from '../../lib/currency';
 
 interface AdminSalesReportsProps {
   analytics: SalesAnalytics | null;
@@ -61,18 +62,18 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
   const exportCSV = () => {
     const rows = [
       ['Metric', 'Value'],
-      ['Gross Revenue', `$${analytics.grossRevenue.toFixed(2)}`],
-      ['Net Revenue', `$${analytics.netRevenue.toFixed(2)}`],
+      ['Gross Revenue (NGN)', `₦${analytics.grossRevenue.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`],
+      ['Net Revenue (NGN)', `₦${analytics.netRevenue.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`],
       ['Total Orders', analytics.totalOrders],
       ['Total Refunds', analytics.totalRefunds],
-      ['Refund Amount Total', `$${analytics.refundAmountTotal.toFixed(2)}`],
-      ['Average Order Value', `$${analytics.averageOrderValue.toFixed(2)}`],
+      ['Refund Amount Total (NGN)', `₦${analytics.refundAmountTotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`],
+      ['Average Order Value (NGN)', `₦${analytics.averageOrderValue.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`],
       ['Total Products', analytics.totalProducts],
       ['Low Stock SKUs', analytics.lowStockCount],
       ['Registered Customers', analytics.totalCustomers],
       [],
       ['Daily Revenue Timeline'],
-      ['Date', 'Revenue ($)', 'Orders', 'Refunds ($)'],
+      ['Date', 'Revenue (NGN)', 'Orders', 'Refunds (NGN)'],
       ...analytics.dailyRevenue.map((d) => [d.date, d.revenue, d.orders, d.refunds]),
     ];
 
@@ -80,7 +81,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `blazestore_sales_report_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `blazestore_sales_report_ngn_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -96,13 +97,13 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black tracking-tight">Sales Reports & Revenue Analytics</h2>
+            <h2 className="text-xl font-black tracking-tight">Sales Reports & Revenue Analytics (NGN ₦)</h2>
             <span className="rounded-full bg-[#7C6FE0]/15 px-2.5 py-0.5 text-xs font-bold text-[#7C6FE0]">
               Real MongoDB Data
             </span>
           </div>
           <p className="text-xs text-[#8A8A94] mt-0.5">
-            Real-time analytics, revenue distribution, order tracking, and refund impact.
+            Real-time analytics, revenue distribution in Naira, order tracking, and refund impact.
           </p>
         </div>
 
@@ -113,7 +114,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
               <button
                 key={r}
                 onClick={() => setTimeRange(r)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition capitalize ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition capitalize cursor-pointer ${
                   timeRange === r
                     ? 'bg-[#7C6FE0] text-white shadow-xs'
                     : 'text-[#8A8A94] hover:text-[#1F1F23] dark:hover:text-white'
@@ -127,7 +128,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
           {adminRole === 'owner' ? (
             <button
               onClick={exportCSV}
-              className="flex items-center gap-1.5 rounded-xl bg-[#7C6FE0] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#6D60D6] transition"
+              className="flex items-center gap-1.5 rounded-xl bg-[#7C6FE0] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#6D60D6] transition cursor-pointer"
               title="Export raw revenue and ledger data (Owner Exclusive)"
             >
               <Download className="h-4 w-4" />
@@ -156,14 +157,14 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#8A8A94] uppercase tracking-wider">Gross Sales</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#7C6FE0]/15 text-[#7C6FE0]">
-              <DollarSign className="h-5 w-5" />
+              <span className="font-bold text-base">₦</span>
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black tracking-tight">${analytics.grossRevenue.toFixed(2)}</span>
+            <span className="text-2xl font-black tracking-tight">{formatNaira(analytics.grossRevenue)}</span>
             <div className="flex items-center gap-1 text-[11px] font-bold text-[#4CAF50] mt-1">
               <ArrowUpRight className="h-3.5 w-3.5" />
-              <span>Net: ${analytics.netRevenue.toFixed(2)}</span>
+              <span>Net: {formatNaira(analytics.netRevenue)}</span>
             </div>
           </div>
         </div>
@@ -183,7 +184,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
           <div className="mt-3">
             <span className="text-2xl font-black tracking-tight">{analytics.totalOrders}</span>
             <div className="flex items-center gap-1 text-[11px] font-bold text-[#8A8A94] mt-1">
-              <span>Avg Value: ${analytics.averageOrderValue.toFixed(2)}</span>
+              <span>Avg Value: {formatNaira(analytics.averageOrderValue)}</span>
             </div>
           </div>
         </div>
@@ -202,7 +203,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
           </div>
           <div className="mt-3">
             <span className="text-2xl font-black tracking-tight text-[#E11D48]">
-              ${analytics.refundAmountTotal.toFixed(2)}
+              {formatNaira(analytics.refundAmountTotal)}
             </span>
             <div className="flex items-center gap-1 text-[11px] font-bold text-[#8A8A94] mt-1">
               <span>{analytics.totalRefunds} refunds ({refundRate}% rate)</span>
@@ -210,7 +211,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
           </div>
         </div>
 
-        {/* Inventory Health */}
+        {/* Catalog Health */}
         <div
           className={`rounded-2xl p-5 border transition-all ${
             isDarkMode ? 'bg-[#18181B] border-[#27272A]' : 'bg-white border-[#EDEDF2] shadow-xs'
@@ -243,7 +244,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-sm">Revenue & Orders Timeline</h3>
-              <p className="text-[11px] text-[#8A8A94]">Daily gross revenue ($) compared to refund deductions</p>
+              <p className="text-[11px] text-[#8A8A94]">Daily gross revenue in Naira (₦) compared to refund deductions</p>
             </div>
             <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1.5">
@@ -259,7 +260,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
 
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analytics.dailyRevenue} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={analytics.dailyRevenue} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#7C6FE0" stopOpacity={0.4} />
@@ -279,7 +280,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
                 <YAxis
                   tick={{ fontSize: 11, fill: '#8A8A94' }}
                   axisLine={{ stroke: isDarkMode ? '#27272A' : '#EDEDF2' }}
-                  tickFormatter={(val) => `$${val}`}
+                  tickFormatter={(val) => `₦${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`}
                 />
                 <Tooltip
                   contentStyle={{
@@ -288,7 +289,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
                     borderRadius: '12px',
                     fontSize: '12px',
                   }}
-                  formatter={(val: any) => [`$${Number(val).toFixed(2)}`]}
+                  formatter={(val: any) => [formatNaira(Number(val))]}
                 />
                 <Area
                   type="monotone"
@@ -347,7 +348,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
                         borderRadius: '12px',
                         fontSize: '12px',
                       }}
-                      formatter={(val: any) => [`$${Number(val).toFixed(2)}`, 'Sales']}
+                      formatter={(val: any) => [formatNaira(Number(val)), 'Sales']}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -364,7 +365,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
                       />
                       <span className="font-medium text-[#52525B] dark:text-[#A1A1AA] truncate">{cat.name}</span>
                     </div>
-                    <span className="font-bold">${cat.value.toFixed(2)}</span>
+                    <span className="font-bold">{formatNaira(cat.value)}</span>
                   </div>
                 ))}
               </div>
@@ -434,7 +435,7 @@ export const AdminSalesReports: React.FC<AdminSalesReportsProps> = ({
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right font-black text-[#7C6FE0]">
-                      ${p.revenue.toFixed(2)}
+                      {formatNaira(p.revenue)}
                     </td>
                   </tr>
                 ))

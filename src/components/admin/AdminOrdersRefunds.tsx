@@ -23,6 +23,7 @@ import {
 import { Order, RefundRecord, OrderStatus, AdminRole } from '../../types';
 import { api } from '../../services/api';
 import { ConfirmDeleteModal } from '../ConfirmDeleteModal';
+import { formatNaira } from '../../lib/currency';
 
 interface AdminOrdersRefundsProps {
   adminRole: AdminRole;
@@ -176,7 +177,7 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
 
     const availableToRefund = selectedOrderForRefund.total - (selectedOrderForRefund.refundAmount || 0);
     if (amountNum > availableToRefund) {
-      onShowToast(`❌ Refund amount exceeds available balance ($${availableToRefund.toFixed(2)})`);
+      onShowToast(`❌ Refund amount exceeds available balance (${formatNaira(availableToRefund)})`);
       return;
     }
 
@@ -402,10 +403,10 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
 
                           {/* Total */}
                           <td className="py-3.5 px-4 text-right font-black text-[#1F1F23] dark:text-white">
-                            ${ord.total.toFixed(2)}
+                            {formatNaira(ord.total)}
                             {ord.refundAmount ? (
                               <span className="block text-[10px] text-[#E11D48] font-bold">
-                                -${ord.refundAmount.toFixed(2)} refunded
+                                -{formatNaira(ord.refundAmount)} refunded
                               </span>
                             ) : null}
                           </td>
@@ -498,7 +499,7 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-[#8A8A94] mt-0.5">
-                Under RBAC policy, refund requests over $200.00 initiated by Store Managers require Owner approval.
+                Under RBAC policy, refund requests over ₦100,000.00 initiated by Store Managers require Owner approval.
               </p>
             </div>
 
@@ -538,7 +539,7 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
                         <span className="text-[10px] text-[#8A8A94] block">{ref.customerEmail}</span>
                       </td>
                       <td className="py-3.5 px-4 text-right font-black text-[#E11D48] text-sm">
-                        ${ref.amount.toFixed(2)}
+                        {formatNaira(ref.amount)}
                       </td>
                       <td className="py-3.5 px-4 font-medium text-[#52525B] dark:text-[#A1A1AA] max-w-[200px]">
                         {ref.reason}
@@ -645,7 +646,7 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
                         <span className="text-[10px] text-[#8A8A94] block">{ref.customerEmail}</span>
                       </td>
                       <td className="py-3 px-4 text-right font-black text-[#E11D48]">
-                        ${ref.amount.toFixed(2)}
+                        {formatNaira(ref.amount)}
                       </td>
                       <td className="py-3 px-4 font-medium text-[#52525B] dark:text-[#A1A1AA] max-w-[200px] truncate">
                         {ref.reason}
@@ -741,14 +742,14 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
 
             <form onSubmit={handleProcessRefundSubmit} className="space-y-4 text-xs">
               {/* Manager RBAC threshold alert */}
-              {adminRole === 'manager' && Number(refundAmount) > 200 && (
+              {adminRole === 'manager' && Number(refundAmount) > 100000 && (
                 <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs space-y-1">
                   <div className="font-bold flex items-center gap-1.5">
                     <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                    <span>Manager Approval Threshold ($200.00)</span>
+                    <span>Manager Approval Threshold (₦100,000.00)</span>
                   </div>
                   <p className="text-[11px] leading-relaxed">
-                    Under RBAC rules, refunds above <strong>$200.00</strong> will be flagged as <strong>"Pending Owner Approval"</strong> and submitted to the Store Owner queue.
+                    Under RBAC rules, refunds above <strong>₦100,000.00</strong> will be flagged as <strong>"Pending Owner Approval"</strong> and submitted to the Store Owner queue.
                   </p>
                 </div>
               )}
@@ -758,19 +759,19 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
                 <div className="flex justify-between text-[#8A8A94]">
                   <span>Original Order Total</span>
                   <span className="font-bold text-[#1F1F23] dark:text-white">
-                    ${selectedOrderForRefund.total.toFixed(2)}
+                    {formatNaira(selectedOrderForRefund.total)}
                   </span>
                 </div>
                 {selectedOrderForRefund.refundAmount ? (
                   <div className="flex justify-between text-[#E11D48]">
                     <span>Already Refunded</span>
-                    <span>-${selectedOrderForRefund.refundAmount.toFixed(2)}</span>
+                    <span>-{formatNaira(selectedOrderForRefund.refundAmount)}</span>
                   </div>
                 ) : null}
                 <div className="flex justify-between font-bold pt-1 border-t border-[#EDEDF2] dark:border-[#333]">
                   <span>Maximum Refundable</span>
                   <span className="text-[#4CAF50]">
-                    ${(selectedOrderForRefund.total - (selectedOrderForRefund.refundAmount || 0)).toFixed(2)}
+                    {formatNaira(selectedOrderForRefund.total - (selectedOrderForRefund.refundAmount || 0))}
                   </span>
                 </div>
               </div>
@@ -778,15 +779,15 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
               {/* Refund Amount Input */}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-bold text-[#8A8A94]">Refund Amount ($) *</label>
+                  <label className="text-[11px] font-bold text-[#8A8A94]">Refund Amount (₦) *</label>
                   {adminRole === 'manager' && (
                     <span className="text-[10px] text-[#7C6FE0] font-bold">
-                      Direct limit: $200.00
+                      Direct limit: ₦100,000.00
                     </span>
                   )}
                 </div>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8A8A94]" />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-[#8A8A94]">₦</span>
                   <input
                     type="number"
                     step="0.01"
@@ -795,7 +796,7 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
                     max={selectedOrderForRefund.total - (selectedOrderForRefund.refundAmount || 0)}
                     value={refundAmount}
                     onChange={(e) => setRefundAmount(e.target.value)}
-                    className="w-full rounded-xl border border-[#EDEDF2] dark:border-[#27272A] bg-[#FAF9FC] dark:bg-[#202024] pl-9 pr-3 py-2.5 text-sm font-black text-[#E11D48] focus:outline-none focus:ring-1 focus:ring-[#7C6FE0]"
+                    className="w-full rounded-xl border border-[#EDEDF2] dark:border-[#27272A] bg-[#FAF9FC] dark:bg-[#202024] pl-8 pr-3 py-2.5 text-sm font-black text-[#E11D48] focus:outline-none focus:ring-1 focus:ring-[#7C6FE0]"
                   />
                 </div>
               </div>
@@ -873,7 +874,7 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
                     <span>Processing Refund...</span>
                   ) : (
                     <>
-                      <span>Issue Refund (${Number(refundAmount || 0).toFixed(2)})</span>
+                      <span>Issue Refund ({formatNaira(Number(refundAmount || 0))})</span>
                       <ArrowRight className="h-3.5 w-3.5" />
                     </>
                   )}
@@ -891,7 +892,7 @@ export const AdminOrdersRefunds: React.FC<AdminOrdersRefundsProps> = ({
         onConfirm={handleConfirmDeleteOrder}
         title="Delete Order Record"
         message="This action will permanently delete this order record and associated line items from the database."
-        itemName={orderToDelete ? `Order #${orderToDelete.orderId} - $${orderToDelete.total.toFixed(2)} (${orderToDelete.customerName})` : undefined}
+        itemName={orderToDelete ? `Order #${orderToDelete.orderId} - ${formatNaira(orderToDelete.total)} (${orderToDelete.customerName})` : undefined}
         confirmText="Delete Order"
         isLoading={isDeletingOrder}
         isDarkMode={isDarkMode}

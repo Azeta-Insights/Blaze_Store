@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Heart, ShoppingBag, Trash2 } from 'lucide-react';
 import { Product } from '../types';
+import { formatNaira } from '../lib/currency';
 
 interface WishlistModalProps {
   isOpen: boolean;
@@ -75,7 +76,7 @@ export const WishlistModal: React.FC<WishlistModalProps> = ({
                 <div className="flex-1 min-w-0">
                   <h4 className="text-xs font-bold truncate leading-tight">{item.name}</h4>
                   <span className="text-[11px] font-bold text-[#7C6FE0] block mt-0.5">
-                    ${item.price.toFixed(2)}
+                    {formatNaira(item.price)}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">

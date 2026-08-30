@@ -1133,7 +1133,9 @@ export default function App() {
         onClearCart={handleClearCart}
         onPlaceOrder={handlePlaceOrder}
         isDarkMode={isDarkMode}
+        onShowToast={showToast}
       />
+
 
       <NotificationsModal
         isOpen={isNotificationsOpen}
