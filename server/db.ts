@@ -684,6 +684,7 @@ export async function toggleWishlist(product: Product) {
 export async function createOrder(orderData: any): Promise<Order> {
   const { db, isConnected } = await getDatabase();
 
+  const isPaid = orderData.paymentStatus === 'paid';
   const newOrder: Order = {
     orderId: orderData.orderId || `BZ-${Math.floor(100000 + Math.random() * 900000)}`,
     customer: orderData.customer,
@@ -692,7 +693,13 @@ export async function createOrder(orderData: any): Promise<Order> {
     discount: orderData.discount || 0,
     shipping: orderData.shipping || 0,
     total: orderData.total,
-    status: 'pending',
+    currency: orderData.currency || 'NGN',
+    currencySymbol: orderData.currencySymbol || '₦',
+    paymentMethod: orderData.paymentMethod || 'paystack',
+    paymentStatus: orderData.paymentStatus || (orderData.paymentMethod === 'cod' ? 'pending' : 'pending'),
+    paymentReference: orderData.paymentReference,
+    paystackData: orderData.paystackData,
+    status: isPaid ? 'processing' : (orderData.status || 'pending'),
     createdAt: new Date().toISOString(),
     userId: orderData.userId || 'guest',
   };
@@ -715,7 +722,7 @@ export async function createOrder(orderData: any): Promise<Order> {
     await db.collection('notifications').insertOne({
       id: `notif-${Date.now()}`,
       title: `Order #${newOrder.orderId} Placed! 🎉`,
-      message: `Your payment of $${newOrder.total.toFixed(2)} was processed successfully.`,
+      message: `Order for ₦${newOrder.total.toLocaleString()} (${newOrder.paymentMethod}) was recorded. Payment Status: ${newOrder.paymentStatus.toUpperCase()}.`,
       time: 'Just now',
       read: false,
       type: 'order',
@@ -727,7 +734,7 @@ export async function createOrder(orderData: any): Promise<Order> {
     inMemoryStore.notifications.unshift({
       id: `notif-${Date.now()}`,
       title: `Order #${newOrder.orderId} Placed! 🎉`,
-      message: `Your payment of $${newOrder.total.toFixed(2)} was logged in memory.`,
+      message: `Order for ₦${newOrder.total.toLocaleString()} was logged in memory. Status: ${newOrder.paymentStatus.toUpperCase()}.`,
       time: 'Just now',
       read: false,
       type: 'order',
@@ -735,6 +742,66 @@ export async function createOrder(orderData: any): Promise<Order> {
   }
 
   return newOrder;
+}
+
+export async function updateOrderPaymentByReference(reference: string, paymentDetails: {
+  paid: boolean;
+  status?: string;
+  paystackData?: any;
+  gatewayResponse?: string;
+}) {
+  const { db, isConnected } = await getDatabase();
+
+  const paymentStatus = paymentDetails.paid ? 'paid' : 'failed';
+  const orderStatus = paymentDetails.paid ? 'processing' : 'pending';
+
+  if (isConnected && db) {
+    const updated = await db.collection<Order>('orders').findOneAndUpdate(
+      {
+        $or: [
+          { paymentReference: reference },
+          { orderId: reference },
+        ],
+      },
+      {
+        $set: {
+          paymentStatus,
+          status: orderStatus,
+          paystackData: paymentDetails.paystackData,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+
+    if (updated && paymentDetails.paid) {
+      await db.collection('notifications').insertOne({
+        id: `notif-${Date.now()}`,
+        title: `Payment Verified for Order #${updated.orderId} ✅`,
+        message: `Paystack real-time payment of ₦${updated.total.toLocaleString()} confirmed (Ref: ${reference}).`,
+        time: 'Just now',
+        read: false,
+        type: 'order',
+        createdAt: new Date(),
+      });
+    }
+
+    return updated;
+  }
+
+  const idx = inMemoryStore.orders.findIndex(
+    (o) => o.paymentReference === reference || o.orderId === reference
+  );
+  if (idx !== -1) {
+    inMemoryStore.orders[idx].paymentStatus = paymentStatus;
+    inMemoryStore.orders[idx].status = orderStatus;
+    if (paymentDetails.paystackData) {
+      inMemoryStore.orders[idx].paystackData = paymentDetails.paystackData;
+    }
+    return inMemoryStore.orders[idx];
+  }
+
+  return null;
 }
 
 export async function getAllOrders(status?: string, search?: string): Promise<Order[]> {

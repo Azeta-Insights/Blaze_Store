@@ -243,11 +243,46 @@ export default function App() {
           try {
             const verifyRes = await api.verifyPaystack(paystackRef);
             if (verifyRes && verifyRes.paid) {
+              // Retrieve pending order if stored before redirect
+              try {
+                const rawPending = localStorage.getItem('blazestore_pending_order');
+                if (rawPending) {
+                  const pending = JSON.parse(rawPending);
+                  await api.placeOrder({
+                    orderId: `NG-${Date.now().toString().slice(-6)}`,
+                    customer: {
+                      name: pending.customer?.name || 'Customer',
+                      email: pending.customer?.email || verifyRes.customer?.email || '',
+                      phone: pending.customer?.phone || '',
+                      address: pending.customer?.address || '',
+                      city: pending.customer?.city || '',
+                      state: pending.customer?.state || '',
+                      country: 'Nigeria',
+                    },
+                    currency: 'NGN',
+                    currencySymbol: '₦',
+                    items: pending.items || [],
+                    subtotal: pending.total || (verifyRes.amount ? verifyRes.amount / 100 : 0),
+                    discount: 0,
+                    shipping: 0,
+                    total: pending.total || (verifyRes.amount ? verifyRes.amount / 100 : 0),
+                    paymentMethod: 'Paystack Gateway',
+                    paymentStatus: 'paid',
+                    paymentReference: paystackRef,
+                    paystackData: verifyRes,
+                    userId: currentUser?.id || 'guest',
+                  });
+                  localStorage.removeItem('blazestore_pending_order');
+                }
+              } catch (pendingErr) {
+                console.warn('Pending order sync error:', pendingErr);
+              }
+
               setCart([]);
               localStorage.removeItem('blazestore_cart');
               showToast(`🎉 Real-Time Paystack Payment Verified! (Ref: ${paystackRef})`);
             } else {
-              showToast(`ℹ️ Paystack status: ${verifyRes?.gatewayResponse || 'Verification complete'}`);
+              showToast(`ℹ️ Paystack status: ${verifyRes?.gatewayResponse || verifyRes?.error || 'Verification incomplete'}`);
             }
           } catch (e) {
             console.warn('Paystack redirect verify error:', e);

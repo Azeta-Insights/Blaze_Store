@@ -54,6 +54,15 @@ export function isPaystackLive(): boolean {
   return secret.startsWith('sk_live_') || pub.startsWith('pk_live_');
 }
 
+export function isPaystackKeyMismatch(): boolean {
+  const secret = getPaystackSecretKey();
+  const pub = getPaystackPublicKey();
+  if (!secret) return false;
+  const isSecretLive = secret.startsWith('sk_live_');
+  const isPubLive = pub.startsWith('pk_live_');
+  return isSecretLive !== isPubLive;
+}
+
 export function getPaystackPublicKey(): string {
   return (
     runtimePaystackPublicKey ||
@@ -67,6 +76,7 @@ export function getPaystackSecretKey(): string {
   return (
     runtimePaystackSecretKey ||
     process.env.PAYSTACK_SECRET_KEY ||
+    process.env.VITE_PAYSTACK_SECRET_KEY ||
     ''
   ).trim();
 }
@@ -81,21 +91,28 @@ export function getPaystackFullConfig() {
   const publicKey = getPaystackPublicKey();
   const configured = isPaystackConfigured();
   const isLive = isPaystackLive();
+  const isMismatch = isPaystackKeyMismatch();
+
+  let message = 'Paystack Sandbox Demo Mode';
+  if (isMismatch) {
+    message = '⚠️ Warning: Key Mode Mismatch (One key is Live and one is Test). Please ensure both keys are Live or both are Test.';
+  } else if (isLive) {
+    message = 'Paystack Live Production Gateway Active';
+  } else if (configured) {
+    message = 'Paystack Test Mode Active';
+  }
 
   return {
     success: true,
     configured,
     isLive,
+    isMismatch,
     mode: isLive ? 'live' : configured ? 'test' : 'sandbox',
     publicKey,
     hasSecretKey: Boolean(secretKey),
     secretKeyMasked: secretKey ? `${secretKey.substring(0, 7)}...${secretKey.substring(secretKey.length - 4)}` : '',
     maskedSecretKey: secretKey ? `${secretKey.substring(0, 7)}...${secretKey.substring(secretKey.length - 4)}` : '',
-    message: isLive
-      ? 'Paystack Live Production Gateway Active'
-      : configured
-      ? 'Paystack Test Mode Active'
-      : 'Paystack Sandbox Demo Mode',
+    message,
     supportedChannels: ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer', 'eft'],
   };
 }

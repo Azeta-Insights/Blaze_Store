@@ -2278,6 +2278,7 @@ export const api = {
     currency?: string;
     channel?: string;
     gatewayResponse?: string;
+    customer?: { email?: string; name?: string; phone?: string };
     isSimulation?: boolean;
     error?: string;
   }> {

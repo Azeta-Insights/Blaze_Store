@@ -122,7 +122,12 @@ export interface Order {
   discount: number;
   shipping: number;
   total: number;
+  currency?: string;
+  currencySymbol?: string;
   paymentMethod?: string;
+  paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
+  paymentReference?: string;
+  paystackData?: any;
   status: OrderStatus;
   createdAt: string | Date;
   userId?: string;

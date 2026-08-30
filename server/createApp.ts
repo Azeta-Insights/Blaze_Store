@@ -17,6 +17,7 @@ import {
   getWishlist,
   toggleWishlist,
   createOrder,
+  updateOrderPaymentByReference,
   getAllOrders,
   updateOrderStatus,
   deleteOrderAdmin,
@@ -398,6 +399,21 @@ export function createApp() {
       }
 
       const result = await verifyPaystackTransaction(reference);
+
+      // Automatically sync and update the database order status if paid
+      if (result && result.paid) {
+        try {
+          await updateOrderPaymentByReference(reference, {
+            paid: true,
+            status: result.status,
+            paystackData: result,
+            gatewayResponse: result.gatewayResponse,
+          });
+        } catch (dbErr) {
+          console.warn('[Paystack DB Update on Verify Warning]:', dbErr);
+        }
+      }
+
       res.json(result);
     } catch (err: any) {
       console.error('[Paystack Verify Endpoint Error]:', err);
@@ -424,6 +440,19 @@ export function createApp() {
         const reference = event.data?.reference;
         const amount = event.data?.amount;
         console.log(`[Paystack Webhook] Successful payment for ref: ${reference}, amount: ${amount}`);
+
+        if (reference) {
+          try {
+            await updateOrderPaymentByReference(reference, {
+              paid: true,
+              status: 'success',
+              paystackData: event.data,
+              gatewayResponse: event.data?.gateway_response,
+            });
+          } catch (updateErr) {
+            console.error('[Paystack Webhook DB Update Error]:', updateErr);
+          }
+        }
       }
 
       res.status(200).json({ status: 'success' });
