@@ -818,6 +818,103 @@ export const AdminDatabaseHub: React.FC<AdminDatabaseHubProps> = ({
         </div>
       </div>
 
+      {/* Paystack Payment Gateway & Real-Time Processing Hub */}
+      <div
+        className={`rounded-2xl p-6 border ${
+          isDarkMode ? 'bg-[#18181B] border-[#27272A]' : 'bg-white border-[#EDEDF2] shadow-xs'
+        }`}
+      >
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#EDEDF2] dark:border-[#27272A] pb-5">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0AA5FF]/15 text-[#0AA5FF]">
+              <Zap className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base">Paystack Payment Gateway &amp; Channels</h3>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0AA5FF] bg-[#0AA5FF]/10 px-2.5 py-0.5 rounded-full">
+                  <CheckCircle2 className="h-3 w-3" /> NGN Real-Time Ready
+                </span>
+              </div>
+              <p className="text-xs text-[#8A8A94] mt-0.5">
+                Process real-time card charges, direct Nigerian bank transfers, USSD bank shortcodes, and Apple Pay.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-3 py-1.5 rounded-xl font-bold bg-[#0AA5FF]/10 text-[#0AA5FF] border border-[#0AA5FF]/20">
+              Currency: ₦ NGN (Naira)
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
+          {/* Active Payment Channels */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A8A94]">
+              Supported Payment Channels
+            </h4>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A]">
+                <div className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                  <span className="font-semibold">Debit / Credit Cards</span>
+                </div>
+                <span className="text-[#8A8A94] font-mono">Mastercard, VISA, Verve</span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A]">
+                <div className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                  <span className="font-semibold">Nigerian Bank Direct Transfer</span>
+                </div>
+                <span className="text-[#8A8A94] font-mono">GTBank, Access, Zenith, Kuda</span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A]">
+                <div className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                  <span className="font-semibold">USSD Quick Banking</span>
+                </div>
+                <span className="text-[#8A8A94] font-mono">*737#, *966#, *901#</span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A]">
+                <div className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                  <span className="font-semibold">Apple Pay &amp; Mobile Wallets</span>
+                </div>
+                <span className="text-[#8A8A94] font-mono">Instant Biometric Pay</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Paystack API Key Instructions */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A8A94]">
+              Paystack Environment Keys
+            </h4>
+            <p className="text-xs text-[#8A8A94]">
+              To activate live Paystack charges, add your Paystack API keys in the app settings (.env) or environment:
+            </p>
+
+            <div className="bg-black/90 text-white rounded-lg p-3 text-[11px] font-mono space-y-1">
+              <div className="text-[#0AA5FF]"># Paystack Live / Test API Keys</div>
+              <div>PAYSTACK_SECRET_KEY=&quot;sk_live_...&quot;</div>
+              <div>PAYSTACK_PUBLIC_KEY=&quot;pk_live_...&quot;</div>
+              <div>VITE_PAYSTACK_PUBLIC_KEY=&quot;pk_live_...&quot;</div>
+              <div className="text-neutral-400 mt-1"># Webhook Signature Verification:</div>
+              <div>POST /api/paystack/webhook (HMAC SHA-512)</div>
+            </div>
+
+            <div className="text-[11px] text-[#8A8A94]">
+              🔒 When live keys are provided, customer checkout automatically switches to real-time Paystack popup and verified server receipts.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Delete Document Confirmation Modal */}
       <ConfirmDeleteModal
         isOpen={Boolean(docToDelete)}

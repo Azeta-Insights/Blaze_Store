@@ -110,36 +110,36 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Slide-over Drawer Backdrop on screens under 1440px */}
       {isOpenMobile && (
         <div
           id="cart-mobile-backdrop"
           onClick={onCloseMobile}
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs xl:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs 2xl:hidden transition-opacity duration-300"
         />
       )}
 
       <aside
         id="cart-sidebar"
-        className={`fixed inset-y-0 right-0 z-50 flex w-[300px] flex-col border-l border-[#EDEDF2] transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-[310px] flex-col border-l border-[#EDEDF2] transition-transform duration-300 ease-in-out ${
           isDarkMode ? 'bg-[#18181B] text-[#EDEDF2] border-[#27272A]' : 'bg-white text-[#1F1F23]'
         } ${
           isOpenMobile
             ? 'translate-x-0 shadow-2xl'
             : isCollapsed
             ? 'translate-x-full'
-            : 'translate-x-full xl:translate-x-0'
+            : 'translate-x-full 2xl:translate-x-0'
         }`}
       >
         {/* Top Header Row: Wishlist, Notification Bell, User Avatar & Name */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-[#EDEDF2]/60 dark:border-[#27272A]/60">
           <div className="flex items-center gap-1.5">
-            {/* Desktop Collapse Button */}
+            {/* Desktop Wide Collapse Button */}
             {onToggleCollapse && (
               <button
                 id="cart-desktop-collapse-btn"
                 onClick={onToggleCollapse}
-                className="hidden xl:flex p-1.5 rounded-lg text-[#8A8A94] hover:bg-[#F7F7FA] dark:hover:bg-[#27272A] hover:text-[#7C6FE0] transition"
+                className="hidden 2xl:flex p-1.5 rounded-lg text-[#8A8A94] hover:bg-[#F7F7FA] dark:hover:bg-[#27272A] hover:text-[#7C6FE0] transition"
                 title="Collapse cart panel"
                 aria-label="Collapse cart panel"
               >
@@ -189,13 +189,13 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
               align="right"
             />
 
-            {/* Close drawer on mobile */}
+            {/* Close drawer on screens under 1440px */}
             {onCloseMobile && (
               <button
                 id="cart-close-mobile-btn"
                 onClick={onCloseMobile}
-                className="p-1.5 rounded-lg text-[#8A8A94] hover:bg-[#F7F7FA] dark:hover:bg-[#27272A] xl:hidden ml-1"
-                aria-label="Close cart"
+                className="p-1.5 rounded-lg text-[#8A8A94] hover:bg-[#F7F7FA] dark:hover:bg-[#27272A] 2xl:hidden ml-1"
+                aria-label="Close cart drawer"
               >
                 <X className="h-5 w-5" />
               </button>

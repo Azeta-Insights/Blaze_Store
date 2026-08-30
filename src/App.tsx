@@ -112,9 +112,29 @@ export default function App() {
   const [dealsProducts, setDealsProducts] = useState<Product[]>(BEST_DEALS);
   const [recProducts, setRecProducts] = useState<Product[]>(RECOMMENDED_PRODUCTS);
 
-  // Cart, Wishlist & Notifications state (synced with MongoDB / real actions)
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [wishlist, setWishlist] = useState<Product[]>([]);
+  // Cart, Wishlist & Notifications state (synced with browser localStorage & MongoDB)
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('blazestore_cart');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  const [wishlist, setWishlist] = useState<Product[]>(() => {
+    try {
+      const saved = localStorage.getItem('blazestore_wishlist');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   // Toast feedback
@@ -143,6 +163,20 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Persist visitor cart to localStorage immediately whenever changed
+  useEffect(() => {
+    try {
+      localStorage.setItem('blazestore_cart', JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
+
+  // Persist visitor wishlist to localStorage immediately whenever changed
+  useEffect(() => {
+    try {
+      localStorage.setItem('blazestore_wishlist', JSON.stringify(wishlist));
+    } catch {}
+  }, [wishlist]);
+
   // Combined product list
   const allProducts = useMemo(() => {
     const map = new Map<string, Product>();
@@ -152,67 +186,59 @@ export default function App() {
     return Array.from(map.values());
   }, [dealsProducts, recProducts]);
 
-  // Initial Data Load from MongoDB
+  // Consolidated Initial Bootstrap Data Load
   useEffect(() => {
     async function initData() {
+      // 1. Instantaneous offline/cache hydration from localStorage
       try {
-        const [status, fetchedCart, fetchedWishlist, fetchedNotifs, fetchedProducts, fetchedUser, fetchedAnn] = await Promise.all([
-          api.getDbStatus(),
-          api.getCart(),
-          api.getWishlist(),
-          api.getNotifications(),
-          api.getProducts(),
-          api.getMe(),
-          api.getAnnouncement().catch(() => null),
-        ]);
-
-        if (status) setDbStatus(status);
-        if (fetchedCart && fetchedCart.length > 0) setCart(fetchedCart);
-        if (fetchedWishlist && fetchedWishlist.length > 0) setWishlist(fetchedWishlist);
-        if (fetchedNotifs && fetchedNotifs.length > 0) setNotifications(fetchedNotifs);
-        if (fetchedAnn) setAnnouncementConfig(fetchedAnn);
-        if (fetchedUser) {
-          setCurrentUser(fetchedUser);
-          // Set landing page based on user role
-          if (fetchedUser.roleType === 'owner') {
-            setCurrentPage('owner_dashboard');
-          } else if (fetchedUser.roleType === 'manager') {
-            setCurrentPage('manager_dashboard');
-          } else {
-            setCurrentPage('store');
+        const cached = localStorage.getItem('blazestore_bootstrap_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached)?.data;
+          if (parsed) {
+            if (parsed.dbStatus) setDbStatus(parsed.dbStatus);
+            if (parsed.deals?.length) setDealsProducts(parsed.deals);
+            if (parsed.recommended?.length) setRecProducts(parsed.recommended);
+            if (parsed.announcement) setAnnouncementConfig(parsed.announcement);
           }
         }
+      } catch {}
 
-        if (fetchedProducts && fetchedProducts.length > 0) {
-          const deals = fetchedProducts.filter((p) => p.discountPercentage && p.discountPercentage >= 25);
-          const recommended = fetchedProducts.filter((p) => !p.discountPercentage || p.discountPercentage < 25);
-          if (deals.length > 0) setDealsProducts(deals);
-          if (recommended.length > 0) setRecProducts(recommended);
+      // 2. Fetch fresh consolidated bootstrap data in a single round-trip
+      try {
+        const bootstrap = await api.getBootstrap();
+        if (bootstrap) {
+          if (bootstrap.dbStatus) setDbStatus(bootstrap.dbStatus);
+          if (bootstrap.deals && bootstrap.deals.length > 0) setDealsProducts(bootstrap.deals);
+          if (bootstrap.recommended && bootstrap.recommended.length > 0) setRecProducts(bootstrap.recommended);
+          if (bootstrap.announcement) setAnnouncementConfig(bootstrap.announcement);
+          if (bootstrap.notifications && bootstrap.notifications.length > 0) setNotifications(bootstrap.notifications);
+          if (bootstrap.currentUser) {
+            setCurrentUser(bootstrap.currentUser);
+            // NOTE: Landing view strictly defaults to storefront ('store')
+          }
+          // If server cart exists and local was empty, populate from server
+          if (bootstrap.cart && bootstrap.cart.length > 0 && cart.length === 0) {
+            setCart(bootstrap.cart);
+          }
+          if (bootstrap.wishlist && bootstrap.wishlist.length > 0 && wishlist.length === 0) {
+            setWishlist(bootstrap.wishlist);
+          }
         }
       } catch (err) {
-        console.warn('Initial MongoDB data load:', err);
+        console.warn('Initial bootstrap data load:', err);
       }
     }
 
     initData();
   }, []);
 
-  // Auth Success Handler: routes user to their entitled landing page
+  // Auth Success Handler: user stays on Storefront with quick admin badges enabled
   const handleAuthSuccess = async (user: User, isNewRegistration: boolean) => {
     setCurrentUser(user);
     if (isNewRegistration) {
       showToast(`Welcome to BlazeStore, ${user.name}! 🎉`);
-      setCurrentPage('store');
     } else {
-      showToast(`Welcome back, ${user.name}!`);
-      // Role-specific Landing Page Routing:
-      if (user.roleType === 'owner') {
-        setCurrentPage('owner_dashboard');
-      } else if (user.roleType === 'manager') {
-        setCurrentPage('manager_dashboard');
-      } else {
-        setCurrentPage('store');
-      }
+      showToast(`Welcome back, ${user.name}! ${user.roleType === 'owner' ? '👑 (Owner Hub Available)' : user.roleType === 'manager' ? '🛡️ (Manager Hub Available)' : ''}`);
     }
     // Refresh notifications & db stats
     const notifs = await api.getNotifications();
@@ -583,7 +609,7 @@ export default function App() {
       <div className={`flex flex-col min-h-screen transition-all duration-300 ${
         isLeftSidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-[240px]'
       } ${
-        isRightSidebarCollapsed ? 'xl:pr-0' : 'xl:pr-[300px]'
+        isRightSidebarCollapsed ? '2xl:pr-0' : '2xl:pr-[310px]'
       }`}>
         {/* Sitewide Promotional Announcement Bar */}
         <AnnouncementBar
@@ -750,13 +776,39 @@ export default function App() {
                 <span>✨ New Arrivals</span>
               </button>
 
+              {/* Quick Drawer Cart & Wishlist Trigger for screens under 1440px */}
+              <button
+                id="header-drawer-wishlist-btn"
+                onClick={() => setIsWishlistOpen(true)}
+                className="2xl:hidden relative flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition whitespace-nowrap border border-[#CBD5E1] dark:border-[#27272A] bg-white dark:bg-[#1E1E22] text-[#1E293B] dark:text-[#E2E8F0] hover:bg-[#F1F5F9] dark:hover:bg-[#27272A]"
+                title="View Wishlist"
+              >
+                <Heart className="h-3.5 w-3.5 text-[#FF4D4D]" />
+                <span className="hidden sm:inline">Wishlist</span>
+                {wishlist.length > 0 && (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#FF4D4D] text-[10px] font-bold text-white">
+                    {wishlist.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                id="header-drawer-cart-btn"
+                onClick={() => setIsMobileCartOpen(true)}
+                className="2xl:hidden relative flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold text-white bg-[#7C6FE0] hover:bg-[#6D60D6] shadow-xs transition whitespace-nowrap active:scale-95"
+                title="Open Cart Drawer"
+              >
+                <ShoppingBag className="h-3.5 w-3.5" />
+                <span>Cart ({totalCartCount})</span>
+              </button>
+
               {/* Staff Portal Switcher: ONLY for logged-in Owner or Manager */}
               {isOwner && (
                 <button
                   id="landing-owner-dashboard-btn"
                   onClick={() => setCurrentPage('owner_dashboard')}
                   className="flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3.5 py-2 text-xs font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-500/25 transition whitespace-nowrap"
-                  title="Return to Owner Dashboard"
+                  title="Open Owner Dashboard"
                 >
                   <Crown className="h-3.5 w-3.5 text-amber-500" />
                   <span>Owner Hub</span>
@@ -768,7 +820,7 @@ export default function App() {
                   id="landing-manager-dashboard-btn"
                   onClick={() => setCurrentPage('manager_dashboard')}
                   className="flex items-center gap-1.5 rounded-full bg-[#7C6FE0]/15 border border-[#7C6FE0]/30 px-3.5 py-2 text-xs font-bold text-[#7C6FE0] hover:bg-[#7C6FE0]/25 transition whitespace-nowrap"
-                  title="Return to Manager Dashboard"
+                  title="Open Manager Dashboard"
                 >
                   <ShieldCheck className="h-3.5 w-3.5 text-[#7C6FE0]" />
                   <span>Manager Hub</span>
@@ -1053,12 +1105,24 @@ export default function App() {
         </main>
       </div>
 
-      {/* Floating Desktop Cart Expand Button (when right panel is collapsed) */}
+      {/* Floating Bottom Cart Drawer Trigger (for screens under 1440px or mobile) */}
+      <button
+        id="floating-cart-drawer-trigger"
+        onClick={() => setIsMobileCartOpen(true)}
+        className="2xl:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2.5 rounded-full bg-[#7C6FE0] text-white px-4 py-3 font-bold text-xs shadow-2xl shadow-[#7C6FE0]/40 hover:bg-[#6D60D6] transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+        title="Open Cart Drawer"
+        aria-label="Open Shopping Cart"
+      >
+        <ShoppingBag className="h-4 w-4" />
+        <span>Cart ({totalCartCount})</span>
+      </button>
+
+      {/* Floating Desktop Cart Expand Button (when right panel is manually collapsed on wide 1440px+ displays) */}
       {isRightSidebarCollapsed && (
         <button
           id="expand-cart-floating-btn"
           onClick={() => setIsRightSidebarCollapsed(false)}
-          className="hidden xl:flex fixed top-20 right-6 z-40 items-center gap-2.5 rounded-full bg-[#7C6FE0] text-white px-4 py-2.5 font-bold text-xs shadow-xl shadow-[#7C6FE0]/30 hover:bg-[#6D60D6] transition-all transform hover:scale-105 active:scale-95"
+          className="hidden 2xl:flex fixed top-20 right-6 z-40 items-center gap-2.5 rounded-full bg-[#7C6FE0] text-white px-4 py-2.5 font-bold text-xs shadow-xl shadow-[#7C6FE0]/30 hover:bg-[#6D60D6] transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
           title="Expand Cart Panel"
         >
           <ShoppingBag className="h-4 w-4" />

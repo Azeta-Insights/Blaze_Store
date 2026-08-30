@@ -2319,6 +2319,65 @@ export const api = {
       };
     }
   },
+
+  /**
+   * Consolidated Bootstrap loader: retrieves db status, products, cart, wishlist,
+   * notifications, active user, and announcements in a single fast round-trip.
+   * Utilizes local caching for instantaneous rendering.
+   */
+  async getBootstrap(): Promise<{
+    success: boolean;
+    dbStatus?: DbStatus;
+    products?: Product[];
+    deals?: Product[];
+    recommended?: Product[];
+    cart?: CartItem[];
+    wishlist?: Product[];
+    notifications?: NotificationItem[];
+    currentUser?: User | null;
+    announcement?: AnnouncementConfig;
+    paymentConfig?: any;
+    serverTime?: string;
+  }> {
+    try {
+      const res = await safeJsonFetch<any>('/api/bootstrap');
+      if (res && res.success) {
+        // Cache to localStorage for instantaneous next startup
+        try {
+          localStorage.setItem('blazestore_bootstrap_cache', JSON.stringify({
+            data: res,
+            timestamp: Date.now(),
+          }));
+        } catch {}
+        return res;
+      }
+    } catch (err) {
+      console.warn('[Bootstrap API] Falling back to local cache or parallel endpoints:', err);
+    }
+
+    // Try reading cached bootstrap data from localStorage if network fails
+    try {
+      const cached = localStorage.getItem('blazestore_bootstrap_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.data) {
+          return parsed.data;
+        }
+      }
+    } catch {}
+
+    // Fallback composite
+    return {
+      success: true,
+      products: fallbackEnrichedProducts,
+      deals: fallbackEnrichedProducts.filter((p) => p.discountPercentage && p.discountPercentage >= 25),
+      recommended: fallbackEnrichedProducts.filter((p) => !p.discountPercentage || p.discountPercentage < 25),
+      cart: [],
+      wishlist: [],
+      notifications: [],
+      currentUser: null,
+    };
+  },
 };
 
 

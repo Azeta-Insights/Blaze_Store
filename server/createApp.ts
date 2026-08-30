@@ -100,6 +100,79 @@ export function createApp() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Consolidated Bootstrap API for Instantaneous App Loading in a single round-trip
+  apiRouter.get('/bootstrap', async (req, res) => {
+    try {
+      const [
+        dbStatus,
+        products,
+        cart,
+        wishlist,
+        notifications,
+        currentUser,
+      ] = await Promise.all([
+        getDatabaseStatus().catch((err) => ({
+          connected: false,
+          isUsingFallback: true,
+          database: 'blazestore',
+          hasUri: false,
+          error: err?.message || null,
+        })),
+        getProducts().catch(() => []),
+        getCart().catch(() => []),
+        getWishlist().catch(() => []),
+        getNotifications().catch(() => []),
+        getCurrentUser().catch(() => null),
+      ]);
+
+      const deals = (products || []).filter((p) => p.discountPercentage && p.discountPercentage >= 25);
+      const recommended = (products || []).filter((p) => !p.discountPercentage || p.discountPercentage < 25);
+
+      const paymentConfig = {
+        currency: 'NGN',
+        currencySymbol: '₦',
+        gateway: 'paystack',
+        paystackConfigured: isPaystackConfigured(),
+        publicKey: getPaystackPublicKey(),
+        stripeConfigured: isStripeConfigured(),
+        stripePublishableKey: getStripePublishableKey(),
+        supportedMethods: [
+          { id: 'paystack', name: 'Paystack (Cards, Bank Transfer, USSD, Apple Pay)', enabled: true, live: isPaystackConfigured() },
+          { id: 'card', name: 'Debit / Credit Card (Mastercard, VISA, Verve)', enabled: true, live: isPaystackConfigured() },
+          { id: 'bank-transfer', name: 'Nigerian Bank Direct Transfer (Instant)', enabled: true, live: true },
+          { id: 'ussd', name: 'USSD Bank Code (*737#, *966#, *901#)', enabled: true, live: true },
+          { id: 'cod', name: 'Pay on Delivery (Cash / POS at Door)', enabled: true, live: true },
+        ],
+      };
+
+      const announcement = {
+        enabled: true,
+        text: '⚡ Nationwide Express Delivery: Free shipping across Nigeria on orders over ₦50,000! Use code BLAZE10 for 10% OFF.',
+        linkText: 'Copy BLAZE10',
+        linkAction: 'coupon:BLAZE10',
+        badge: 'FLASH SALE',
+      };
+
+      res.json({
+        success: true,
+        dbStatus,
+        products: products || [],
+        deals,
+        recommended,
+        cart: cart || [],
+        wishlist: wishlist || [],
+        notifications: notifications || [],
+        currentUser,
+        announcement,
+        paymentConfig,
+        serverTime: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      console.error('[Bootstrap API Error]:', err);
+      res.status(500).json({ success: false, error: err?.message || 'Bootstrap load failed' });
+    }
+  });
+
   // === Cloudinary Image Upload API ===
   apiRouter.get('/cloudinary/status', (req, res) => {
     try {
