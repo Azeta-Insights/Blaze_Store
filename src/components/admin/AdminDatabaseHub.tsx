@@ -119,6 +119,12 @@ export const AdminDatabaseHub: React.FC<AdminDatabaseHubProps> = ({
     e.preventDefault();
     setIsUpdatingPaystack(true);
     try {
+      if (paystackSecretInput) {
+        localStorage.setItem('blazestore_paystack_secret_key', paystackSecretInput.trim());
+      }
+      if (paystackPublicInput) {
+        localStorage.setItem('blazestore_paystack_public_key', paystackPublicInput.trim());
+      }
       const res = await api.updatePaystackConfig({
         secretKey: paystackSecretInput || undefined,
         publicKey: paystackPublicInput || undefined,
@@ -157,7 +163,7 @@ export const AdminDatabaseHub: React.FC<AdminDatabaseHubProps> = ({
       });
 
       if (initTest && initTest.reference) {
-        setTestPaystackResult(`✅ Paystack Gateway Online! Test Reference: ${initTest.reference} (Auth URL: ${initTest.authorization_url ? 'Generated' : 'Ready'})`);
+        setTestPaystackResult(`✅ Paystack Gateway Online! Test Reference: ${initTest.reference} (Auth URL: ${initTest.authorizationUrl ? 'Generated' : 'Ready'})`);
         onShowToast('🚀 Paystack Connection Verified!');
       } else {
         setTestPaystackResult('⚠️ Paystack returned response without reference.');

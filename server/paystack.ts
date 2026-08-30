@@ -83,12 +83,19 @@ export function getPaystackFullConfig() {
   const isLive = isPaystackLive();
 
   return {
+    success: true,
     configured,
     isLive,
     mode: isLive ? 'live' : configured ? 'test' : 'sandbox',
     publicKey,
     hasSecretKey: Boolean(secretKey),
+    secretKeyMasked: secretKey ? `${secretKey.substring(0, 7)}...${secretKey.substring(secretKey.length - 4)}` : '',
     maskedSecretKey: secretKey ? `${secretKey.substring(0, 7)}...${secretKey.substring(secretKey.length - 4)}` : '',
+    message: isLive
+      ? 'Paystack Live Production Gateway Active'
+      : configured
+      ? 'Paystack Test Mode Active'
+      : 'Paystack Sandbox Demo Mode',
     supportedChannels: ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer', 'eft'],
   };
 }
@@ -99,24 +106,22 @@ export function getPaystackFullConfig() {
  */
 export async function initializePaystackTransaction(params: PaystackInitParams): Promise<PaystackInitResult> {
   const secretKey = getPaystackSecretKey();
-  const ref = params.reference || `blz_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const ref = params.reference || `blz_paystack_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-  // If Paystack is not yet configured with a live/test secret key, provide seamless sandbox mode
+  // If Paystack is not yet configured with a secret key
   if (!secretKey) {
     return {
-      success: true,
+      success: false,
       reference: ref,
-      accessCode: `acc_sim_${Date.now()}`,
-      authorizationUrl: `https://checkout.paystack.com/sim_${ref}`,
       isSimulation: true,
-      message: 'Paystack Sandbox Simulation initialized. Add PAYSTACK_SECRET_KEY in environment settings to enable live Paystack gateway.',
+      message: 'Paystack Secret Key (PAYSTACK_SECRET_KEY) is not configured in Vercel or Dashboard settings. Please add your secret key (sk_live_... or sk_test_...) to process real-time transactions.',
     };
   }
 
   try {
     const payload: any = {
       email: params.email,
-      amount: Math.round(params.amount), // Must be in kobo
+      amount: Math.round(params.amount), // Must be in kobo (1 Naira = 100 kobo)
       reference: ref,
       currency: 'NGN',
       metadata: params.metadata || {},
@@ -128,7 +133,11 @@ export async function initializePaystackTransaction(params: PaystackInitParams):
 
     if (params.channels && params.channels.length > 0) {
       payload.channels = params.channels;
+    } else {
+      payload.channels = ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer', 'eft'];
     }
+
+    console.log(`[Paystack API] Initializing real-time transaction for ${params.email}, Amount: ₦${(params.amount / 100).toFixed(2)}, Ref: ${ref}`);
 
     const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -142,6 +151,7 @@ export async function initializePaystackTransaction(params: PaystackInitParams):
     const data = (await response.json()) as any;
 
     if (data.status && data.data) {
+      console.log(`[Paystack API] Initialized successfully. Auth URL: ${data.data.authorization_url}`);
       return {
         success: true,
         reference: data.data.reference || ref,
@@ -150,6 +160,7 @@ export async function initializePaystackTransaction(params: PaystackInitParams):
         isSimulation: false,
       };
     } else {
+      console.error('[Paystack API Error]:', data.message || 'Initialization failed');
       throw new Error(data.message || 'Paystack initialization failed');
     }
   } catch (err: any) {
@@ -165,22 +176,18 @@ export async function initializePaystackTransaction(params: PaystackInitParams):
 export async function verifyPaystackTransaction(reference: string): Promise<PaystackVerifyResult> {
   const secretKey = getPaystackSecretKey();
 
-  if (!secretKey || reference.startsWith('blz_sim_') || reference.startsWith('sim_')) {
+  if (!secretKey) {
     return {
-      success: true,
-      paid: true,
-      status: 'success',
-      amount: 5000000,
-      currency: 'NGN',
-      channel: 'card',
-      gatewayResponse: 'Successful (Sandbox Simulation)',
-      paidAt: new Date().toISOString(),
+      success: false,
+      paid: false,
+      status: 'unconfigured',
       reference,
-      isSimulation: true,
+      error: 'PAYSTACK_SECRET_KEY is required to verify transactions with Paystack.',
     };
   }
 
   try {
+    console.log(`[Paystack API] Verifying transaction reference: ${reference}`);
     const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       method: 'GET',
       headers: {
@@ -193,6 +200,7 @@ export async function verifyPaystackTransaction(reference: string): Promise<Pays
 
     if (data.status && data.data) {
       const isPaid = data.data.status === 'success';
+      console.log(`[Paystack API] Verification result for ${reference}: status=${data.data.status}, paid=${isPaid}, amount=₦${(data.data.amount / 100).toFixed(2)}`);
       return {
         success: true,
         paid: isPaid,

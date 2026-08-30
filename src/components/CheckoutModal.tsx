@@ -143,6 +143,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   useEffect(() => {
+    try {
+      const storedSecret = localStorage.getItem('blazestore_paystack_secret_key');
+      const storedPublic = localStorage.getItem('blazestore_paystack_public_key');
+      if (storedSecret || storedPublic) {
+        api.updatePaystackConfig({
+          secretKey: storedSecret || undefined,
+          publicKey: storedPublic || undefined,
+        }).then(() => refreshPaystackConfig());
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
       refreshPaystackConfig();
     }
@@ -195,6 +208,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     e.preventDefault();
     setIsUpdatingKeys(true);
     try {
+      if (customSecretKey) {
+        localStorage.setItem('blazestore_paystack_secret_key', customSecretKey.trim());
+      }
+      if (customPublicKey) {
+        localStorage.setItem('blazestore_paystack_public_key', customPublicKey.trim());
+      }
       const res = await api.updatePaystackConfig({
         secretKey: customSecretKey || undefined,
         publicKey: customPublicKey || undefined,
@@ -258,76 +277,95 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     const reference = `blz_paystack_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const effectivePublicKey = paystackPublicKey || FALLBACK_TEST_KEY;
 
-    // Load and trigger the Paystack popup
+    // Handle Paystack Checkout (Cards, Bank Transfer, USSD, Apple Pay)
     if (formData.paymentMethod === 'paystack' || formData.paymentMethod === 'card') {
-      await ensurePaystackSDK();
+      try {
+        setPaymentStatusText('Connecting to Paystack Nigerian Payment Gateway...');
+        
+        // 1. Initialize transaction with Paystack Backend
+        const initRes = await api.initializePaystack({
+          email: formData.email || 'customer@blazestore.ng',
+          amount: total,
+          reference,
+          callbackUrl: `${window.location.origin}/?paystack_ref=${reference}`,
+          metadata: {
+            customerName: formData.name,
+            customerPhone: formData.phone,
+            deliveryAddress: `${formData.address}, ${formData.city}, ${formData.state}`,
+          },
+        });
 
-      if (window.PaystackPop) {
-        try {
+        if (!initRes.success && initRes.message && initRes.message.includes('not configured')) {
+          setIsSubmitting(false);
+          setShowConfigModal(true);
+          if (onShowToast) onShowToast('⚠️ Please provide your Paystack Secret & Public keys to process live payments.');
+          return;
+        }
+
+        // 2. Launch Official Paystack Inline Popup or Hosted Page
+        await ensurePaystackSDK();
+
+        if (window.PaystackPop) {
           const handler = window.PaystackPop.setup({
             key: effectivePublicKey,
             email: formData.email || 'customer@blazestore.ng',
-            amount: Math.round(total * 100), // in kobo
+            amount: Math.round(total * 100), // amount in kobo
             currency: 'NGN',
-            ref: reference,
+            ref: initRes.reference || reference,
             metadata: {
               custom_fields: [
                 { display_name: 'Customer Name', variable_name: 'customer_name', value: formData.name },
                 { display_name: 'Phone', variable_name: 'customer_phone', value: formData.phone },
-                { display_name: 'Address', variable_name: 'delivery_address', value: `${formData.address}, ${formData.city}, ${formData.state}` },
+                { display_name: 'Delivery Address', variable_name: 'delivery_address', value: `${formData.address}, ${formData.city}, ${formData.state}` },
               ],
             },
-            callback: async (response: { reference: string; status: string }) => {
+            callback: async (response: { reference: string; status?: string }) => {
               setStep('processing');
-              setPaymentStatusText('Verifying settlement with Paystack gateway...');
+              setPaymentStatusText('Verifying real-time settlement with Paystack servers...');
               try {
                 const verifyRes = await api.verifyPaystack(response.reference);
-                if (verifyRes && verifyRes.success && verifyRes.paid) {
-                  if (onShowToast) onShowToast('✅ Paystack payment verified successfully!');
+                if (verifyRes && verifyRes.paid) {
+                  if (onShowToast) onShowToast('✅ Real-time Paystack Payment Verified!');
+                  await finalizeOrder(response.reference, 'Paystack Gateway');
+                } else {
+                  if (onShowToast) onShowToast(`⚠️ Payment verification pending: ${verifyRes?.error || 'Verification incomplete'}`);
+                  await finalizeOrder(response.reference, 'Paystack Gateway');
                 }
-              } catch (err) {
-                console.warn('Verify warning:', err);
+              } catch (err: any) {
+                console.warn('Verify error:', err);
+                await finalizeOrder(response.reference, 'Paystack Gateway');
+              } finally {
+                setIsSubmitting(false);
               }
-              await finalizeOrder(response.reference, 'Paystack Checkout');
-              setIsSubmitting(false);
             },
             onClose: () => {
               setIsSubmitting(false);
               if (onShowToast) onShowToast('Paystack payment window was closed.');
             },
           });
+
           handler.openIframe();
           return;
-        } catch (err: any) {
-          console.warn('[Paystack Popup Warning]:', err);
+        } else if (initRes.authorizationUrl) {
+          // If Paystack inline JS is blocked by browser, open the official hosted Paystack checkout page
+          if (onShowToast) onShowToast('Opening Paystack secure checkout...');
+          window.location.href = initRes.authorizationUrl;
+          return;
         }
+      } catch (err: any) {
+        console.error('Paystack initialization error:', err);
+        if (onShowToast) onShowToast(`❌ Paystack Error: ${err?.message || 'Failed to connect to gateway'}`);
+        setIsSubmitting(false);
+        return;
       }
     }
 
-    // Direct channel processing flow (Bank transfer, USSD, or fallback)
+    // Direct alternative payment methods (Direct Bank Transfer, USSD, Cash on Delivery)
     setStep('processing');
-    setPaymentStatusText('Connecting to Paystack Nigerian Payment Gateway...');
+    setPaymentStatusText('Processing order...');
 
     try {
-      if (formData.paymentMethod === 'paystack' || formData.paymentMethod === 'card') {
-        setPaymentStatusText('Initializing Paystack secure session (Cards, Bank Transfer, USSD)...');
-        const initRes = await api.initializePaystack({
-          email: formData.email,
-          amount: total,
-          reference,
-          metadata: {
-            customerName: formData.name,
-            customerPhone: formData.phone,
-            address: `${formData.address}, ${formData.city}, ${formData.state}`,
-          },
-        });
-
-        // 3D-secure / OTP step verification
-        await new Promise((r) => setTimeout(r, 900));
-
-        setPaymentStatusText('Verifying settlement with Central Bank of Nigeria (CBN) / Paystack...');
-        await api.verifyPaystack(initRes.reference || reference);
-      } else if (formData.paymentMethod === 'bank-transfer') {
+      if (formData.paymentMethod === 'bank-transfer') {
         setPaymentStatusText('Allocating automated Nigerian Bank Transfer account...');
         await new Promise((r) => setTimeout(r, 700));
       } else if (formData.paymentMethod === 'ussd') {

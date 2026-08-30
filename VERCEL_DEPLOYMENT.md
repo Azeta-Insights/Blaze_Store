@@ -19,6 +19,9 @@ In the Vercel project configuration dashboard (Settings > Environment Variables)
 
 | Variable | Description | Example / Required |
 | :--- | :--- | :--- |
+| `PAYSTACK_SECRET_KEY` | Paystack Live/Test Secret Key for Real-Time Checkout | `sk_live_...` or `sk_test_...` (**Critical for Payments**) |
+| `PAYSTACK_PUBLIC_KEY` | Paystack Public Key | `pk_live_...` or `pk_test_...` (**Critical for Payments**) |
+| `VITE_PAYSTACK_PUBLIC_KEY` | Paystack Public Key exposed to frontend Vite | `pk_live_...` or `pk_test_...` |
 | `MONGODB_URI` | MongoDB Atlas Connection String | `mongodb+srv://user:password@cluster.mongodb.net/blazestore?retryWrites=true&w=majority` (Required) |
 | `MONGODB_DB_NAME` | Database Name | `blazestore` (Optional, defaults to `blazestore`) |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary CDN Cloud Name | `your_cloud_name` (Optional for CDN image hosting) |
@@ -28,6 +31,13 @@ In the Vercel project configuration dashboard (Settings > Environment Variables)
 | `VITE_FIREBASE_API_KEY` | Firebase Web API Key | `your_firebase_api_key` (Optional) |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth Domain | `your_project.firebaseapp.com` (Optional) |
 | `VITE_FIREBASE_PROJECT_ID` | Firebase Project ID | `your_project_id` (Optional) |
+
+---
+
+### Paystack Webhook Configuration (Optional for Instant Async Callbacks)
+- In your **[Paystack Dashboard](https://dashboard.paystack.com/#/settings/developer)** under **API Keys & Webhooks**:
+- Set the **Live Webhook URL** to: `https://your-vercel-domain.vercel.app/api/paystack/webhook`
+- Set the **Test Webhook URL** to: `https://your-vercel-domain.vercel.app/api/paystack/webhook`
 
 
 ---

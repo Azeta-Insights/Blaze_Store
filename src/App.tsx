@@ -230,6 +230,31 @@ export default function App() {
     }
 
     initData();
+
+    // 3. Inspect URL for Paystack callback redirect (reference / trxref / paystack_ref)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paystackRef = urlParams.get('reference') || urlParams.get('trxref') || urlParams.get('paystack_ref');
+      if (paystackRef) {
+        // Clean URL to prevent re-triggering
+        window.history.replaceState({}, document.title, window.location.pathname);
+        (async () => {
+          showToast('⏳ Verifying Paystack transaction status...');
+          try {
+            const verifyRes = await api.verifyPaystack(paystackRef);
+            if (verifyRes && verifyRes.paid) {
+              setCart([]);
+              localStorage.removeItem('blazestore_cart');
+              showToast(`🎉 Real-Time Paystack Payment Verified! (Ref: ${paystackRef})`);
+            } else {
+              showToast(`ℹ️ Paystack status: ${verifyRes?.gatewayResponse || 'Verification complete'}`);
+            }
+          } catch (e) {
+            console.warn('Paystack redirect verify error:', e);
+          }
+        })();
+      }
+    } catch {}
   }, []);
 
   // Auth Success Handler: user stays on Storefront with quick admin badges enabled
