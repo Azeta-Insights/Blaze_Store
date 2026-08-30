@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   AlertCircle,
   UploadCloud,
-  Trash2
+  Trash2,
+  Tag,
+  Megaphone
 } from 'lucide-react';
 import { AdminRole, SalesAnalytics, User } from '../../types';
 import { api } from '../../services/api';
@@ -27,6 +29,8 @@ import { AdminInventory } from './AdminInventory';
 import { AdminOrdersRefunds } from './AdminOrdersRefunds';
 import { AdminUsersRoles } from './AdminUsersRoles';
 import { AdminDatabaseHub } from './AdminDatabaseHub';
+import { AdminCouponsPromos } from './AdminCouponsPromos';
+import { AdminAnnouncementManager } from './AdminAnnouncementManager';
 
 interface AdminDashboardProps {
   currentUser: User | null;
@@ -41,8 +45,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isDarkMode,
   onToggleDarkMode,
 }) => {
-  // Navigation Tabs: 'sales_reports' | 'inventory' | 'orders_refunds' | 'users_roles' | 'database'
-  const [activeTab, setActiveTab] = useState<'sales_reports' | 'inventory' | 'orders_refunds' | 'users_roles' | 'database'>('sales_reports');
+  // Navigation Tabs: 'sales_reports' | 'inventory' | 'orders_refunds' | 'coupons' | 'announcement' | 'users_roles' | 'database'
+  const [activeTab, setActiveTab] = useState<
+    'sales_reports' | 'inventory' | 'orders_refunds' | 'coupons' | 'announcement' | 'users_roles' | 'database'
+  >('sales_reports');
 
   // Active Admin Role and Identity (Default to Owner if user is owner or manager)
   const initialRole: AdminRole = currentUser?.roleType === 'manager' ? 'manager' : 'owner';
@@ -297,6 +303,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
+            id="tab-coupons-promos"
+            onClick={() => setActiveTab('coupons')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+              activeTab === 'coupons'
+                ? 'bg-[#7C6FE0] text-white shadow-sm'
+                : 'text-[#8A8A94] hover:text-[#1F1F23] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+            }`}
+          >
+            <Tag className="h-4 w-4" />
+            <span>Coupons & Promos</span>
+          </button>
+
+          <button
+            id="tab-announcement-bar"
+            onClick={() => setActiveTab('announcement')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+              activeTab === 'announcement'
+                ? 'bg-[#7C6FE0] text-white shadow-sm'
+                : 'text-[#8A8A94] hover:text-[#1F1F23] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+            }`}
+          >
+            <Megaphone className="h-4 w-4" />
+            <span>Announcement Bar</span>
+          </button>
+
+          <button
             id="tab-users-roles"
             onClick={() => setActiveTab('users_roles')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
@@ -350,6 +382,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               isDarkMode={isDarkMode}
               onShowToast={showToast}
               onDataChanged={loadAnalytics}
+            />
+          )}
+
+          {activeTab === 'coupons' && (
+            <AdminCouponsPromos
+              adminRole={activeAdminRole}
+              onShowToast={showToast}
+            />
+          )}
+
+          {activeTab === 'announcement' && (
+            <AdminAnnouncementManager
+              onShowToast={showToast}
             />
           )}
 

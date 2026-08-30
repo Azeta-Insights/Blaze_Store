@@ -7,7 +7,11 @@ import {
   RefundRecord,
   SalesAnalytics,
   OrderStatus,
-  AdminRole
+  AdminRole,
+  Review,
+  Coupon,
+  Address,
+  AnnouncementConfig
 } from '../types';
 import { BEST_DEALS, RECOMMENDED_PRODUCTS } from '../data/mockData';
 
@@ -326,7 +330,171 @@ async function safeJsonFetch<T = any>(url: string, options?: RequestInit): Promi
   return json;
 }
 
+// Fallback coupons store
+const fallbackCoupons: Coupon[] = [
+  {
+    id: 'cpn-1',
+    code: 'WELCOME10',
+    discountType: 'percentage',
+    discountValue: 10,
+    minOrderAmount: 30,
+    description: '10% off your entire order (Min $30 spend)',
+    isActive: true,
+    usedCount: 24,
+    usageLimit: 500,
+    createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
+  },
+  {
+    id: 'cpn-2',
+    code: 'FLASH20',
+    discountType: 'percentage',
+    discountValue: 20,
+    minOrderAmount: 100,
+    description: '20% off high-value orders over $100',
+    isActive: true,
+    usedCount: 52,
+    usageLimit: 200,
+    createdAt: new Date(Date.now() - 14 * 86400000).toISOString(),
+  },
+  {
+    id: 'cpn-3',
+    code: 'BLAZE15',
+    discountType: 'fixed',
+    discountValue: 15,
+    minOrderAmount: 75,
+    description: '$15 off orders of $75 or more',
+    isActive: true,
+    usedCount: 38,
+    usageLimit: 300,
+    createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+  },
+  {
+    id: 'cpn-4',
+    code: 'FREESHIP',
+    discountType: 'fixed',
+    discountValue: 12,
+    minOrderAmount: 40,
+    description: 'Free standard shipping discount ($12 savings)',
+    isActive: true,
+    usedCount: 89,
+    usageLimit: 1000,
+    createdAt: new Date(Date.now() - 21 * 86400000).toISOString(),
+  },
+];
+
+// Fallback reviews store
+const fallbackReviews: Review[] = [
+  {
+    id: 'rev-1',
+    productId: '1',
+    userName: 'Sophia Montgomery',
+    userEmail: 'sophia.m@example.com',
+    rating: 5,
+    title: 'Outstanding quality and fit!',
+    comment: 'The denim jacket exceeded my expectations. The stitching is flawless, heavyweight yet comfortable, and looks even better in person.',
+    createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
+    images: [
+      'https://images.unsplash.com/photo-1544441893-675973e31985?w=500&auto=format&fit=crop&q=80',
+    ],
+    verifiedPurchase: true,
+    helpfulCount: 14,
+  },
+  {
+    id: 'rev-2',
+    productId: '1',
+    userName: 'David Vance',
+    userEmail: 'david.v@example.com',
+    rating: 4,
+    title: 'Very stylish piece',
+    comment: 'Great craftsmanship. Sizing runs just slightly large, so keep that in mind if you prefer a slim fit. Otherwise 10/10.',
+    createdAt: new Date(Date.now() - 8 * 86400000).toISOString(),
+    verifiedPurchase: true,
+    helpfulCount: 6,
+  },
+  {
+    id: 'rev-3',
+    productId: '2',
+    userName: 'Elena Rostova',
+    userEmail: 'elena.r@example.com',
+    rating: 5,
+    title: 'Silky smooth & elegant',
+    comment: 'Wore this to a dinner gala and received so many compliments. Luxurious fabric drape and gorgeous color hue.',
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    images: [
+      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&auto=format&fit=crop&q=80',
+    ],
+    verifiedPurchase: true,
+    helpfulCount: 19,
+  },
+  {
+    id: 'rev-4',
+    productId: '3',
+    userName: 'Marcus Chen',
+    userEmail: 'marcus.c@example.com',
+    rating: 5,
+    title: 'Crystal clear ANC & deep bass',
+    comment: 'Battery life easily lasts 30+ hours. The active noise cancellation handles busy airport terminals with ease.',
+    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    verifiedPurchase: true,
+    helpfulCount: 22,
+  },
+  {
+    id: 'rev-5',
+    productId: '4',
+    userName: 'Jessica Miller',
+    userEmail: 'jess.m@example.com',
+    rating: 5,
+    title: 'Accurate tracking & sleek design',
+    comment: 'Tracks heart rate and sleep patterns reliably. The screen is bright under direct sunlight and the strap is super comfortable.',
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    verifiedPurchase: true,
+    helpfulCount: 9,
+  },
+];
+
+// Fallback saved addresses store
+const fallbackAddressesMap: Record<string, Address[]> = {
+  default: [
+    {
+      id: 'addr-1',
+      label: 'Home',
+      isDefault: true,
+      fullName: 'Azeta Blessing',
+      phone: '+1 (555) 234-5678',
+      street: '742 Evergreen Terrace',
+      city: 'Springfield',
+      state: 'OR',
+      zip: '97477',
+      country: 'United States',
+    },
+    {
+      id: 'addr-2',
+      label: 'Work',
+      isDefault: false,
+      fullName: 'Azeta Blessing (Office)',
+      phone: '+1 (555) 890-1234',
+      street: '100 Silicon Way, Suite 400',
+      city: 'San Francisco',
+      state: 'CA',
+      zip: '94105',
+      country: 'United States',
+    },
+  ],
+};
+
+// Fallback announcement configuration
+let fallbackAnnouncement: AnnouncementConfig = {
+  enabled: true,
+  text: '🔥 Flash Sale: 20% OFF Orders Over $100 with code FLASH20 + Free Express Delivery!',
+  badge: 'Limited Offer',
+  linkText: 'Apply Code',
+  linkAction: 'coupon:FLASH20',
+  backgroundColor: 'from-amber-600 via-orange-600 to-rose-600',
+  textColor: 'text-white',
+};
+
 export const api = {
+
   // === Database Status ===
   async getDbStatus(): Promise<DbStatus> {
     try {
@@ -1594,5 +1762,407 @@ export const api = {
       cleared: { orders: 5, refunds: 1, cart: 0, wishlist: 0 },
     };
   },
+
+  // === Coupons & Discounts API ===
+  async getCoupons(): Promise<Coupon[]> {
+    try {
+      const res = await fetch('/api/coupons');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.coupons && Array.isArray(data.coupons)) {
+          return data.coupons;
+        }
+      }
+    } catch (e) {
+      console.warn('Coupons server fetch fallback:', e);
+    }
+    return [...fallbackCoupons];
+  },
+
+  async createCoupon(couponData: Partial<Coupon>): Promise<Coupon> {
+    const code = (couponData.code || '').trim().toUpperCase();
+    const newCoupon: Coupon = {
+      id: `cpn-${Date.now()}`,
+      code,
+      discountType: couponData.discountType || 'percentage',
+      discountValue: Number(couponData.discountValue) || 10,
+      minOrderAmount: Number(couponData.minOrderAmount) || 0,
+      maxDiscountAmount: couponData.maxDiscountAmount ? Number(couponData.maxDiscountAmount) : undefined,
+      description: couponData.description || `${couponData.discountValue}% discount code`,
+      isActive: couponData.isActive !== false,
+      usageLimit: couponData.usageLimit ? Number(couponData.usageLimit) : undefined,
+      usedCount: 0,
+      expiryDate: couponData.expiryDate,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const res = await fetch('/api/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCoupon),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.coupon) {
+          fallbackCoupons.unshift(data.coupon);
+          return data.coupon;
+        }
+      }
+    } catch (e) {
+      console.warn('Create coupon server error fallback:', e);
+    }
+
+    fallbackCoupons.unshift(newCoupon);
+    return newCoupon;
+  },
+
+  async updateCoupon(id: string, updateData: Partial<Coupon>): Promise<Coupon> {
+    try {
+      const res = await fetch(`/api/coupons/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.coupon) {
+          const idx = fallbackCoupons.findIndex((c) => c.id === id);
+          if (idx !== -1) fallbackCoupons[idx] = data.coupon;
+          return data.coupon;
+        }
+      }
+    } catch (e) {
+      console.warn('Update coupon server error fallback:', e);
+    }
+
+    const idx = fallbackCoupons.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      fallbackCoupons[idx] = { ...fallbackCoupons[idx], ...updateData };
+      return fallbackCoupons[idx];
+    }
+    throw new Error('Coupon not found');
+  },
+
+  async deleteCoupon(id: string): Promise<boolean> {
+    try {
+      await fetch(`/api/coupons/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (e) {}
+
+    const idx = fallbackCoupons.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      fallbackCoupons.splice(idx, 1);
+    }
+    return true;
+  },
+
+  async validateCoupon(
+    code: string,
+    subtotal: number
+  ): Promise<{ valid: boolean; coupon?: Coupon; discountAmount: number; error?: string }> {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      return { valid: false, discountAmount: 0, error: 'Please enter a coupon code' };
+    }
+
+    const coupons = await this.getCoupons();
+    const match = coupons.find((c) => c.code.toUpperCase() === cleanCode && c.isActive);
+
+    if (!match) {
+      return { valid: false, discountAmount: 0, error: `Invalid or expired coupon code "${cleanCode}"` };
+    }
+
+    if (match.minOrderAmount && subtotal < match.minOrderAmount) {
+      return {
+        valid: false,
+        discountAmount: 0,
+        error: `Coupon "${match.code}" requires a minimum subtotal of $${match.minOrderAmount.toFixed(2)} (Current: $${subtotal.toFixed(2)})`,
+      };
+    }
+
+    if (match.expiryDate && new Date(match.expiryDate) < new Date()) {
+      return { valid: false, discountAmount: 0, error: `Coupon "${match.code}" has expired` };
+    }
+
+    if (match.usageLimit && match.usedCount >= match.usageLimit) {
+      return { valid: false, discountAmount: 0, error: `Coupon "${match.code}" usage limit has been reached` };
+    }
+
+    let discountAmount = 0;
+    if (match.discountType === 'percentage') {
+      discountAmount = (subtotal * match.discountValue) / 100;
+      if (match.maxDiscountAmount && discountAmount > match.maxDiscountAmount) {
+        discountAmount = match.maxDiscountAmount;
+      }
+    } else {
+      discountAmount = match.discountValue;
+    }
+
+    // Ensure discount does not exceed subtotal
+    discountAmount = Math.min(discountAmount, subtotal);
+    discountAmount = Number(discountAmount.toFixed(2));
+
+    return {
+      valid: true,
+      coupon: match,
+      discountAmount,
+    };
+  },
+
+  // === Customer Product Reviews API ===
+  async getProductReviews(productId: string): Promise<Review[]> {
+    const idStr = String(productId);
+    try {
+      const res = await fetch(`/api/products/${encodeURIComponent(idStr)}/reviews`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reviews && Array.isArray(data.reviews)) {
+          return data.reviews;
+        }
+      }
+    } catch (e) {
+      console.warn('Reviews server error fallback:', e);
+    }
+    return fallbackReviews.filter((r) => String(r.productId) === idStr);
+  },
+
+  async addReview(reviewData: Partial<Review>): Promise<Review> {
+    const newRev: Review = {
+      id: `rev-${Date.now()}`,
+      productId: String(reviewData.productId || '1'),
+      userName: reviewData.userName?.trim() || 'Verified Shopper',
+      userEmail: reviewData.userEmail?.trim() || 'shopper@example.com',
+      rating: Number(reviewData.rating) || 5,
+      title: reviewData.title?.trim() || 'Great purchase',
+      comment: reviewData.comment?.trim() || 'Super fast shipping and excellent quality product.',
+      createdAt: new Date().toISOString(),
+      images: reviewData.images || [],
+      verifiedPurchase: true,
+      helpfulCount: 0,
+    };
+
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRev),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.review) {
+          fallbackReviews.unshift(data.review);
+          return data.review;
+        }
+      }
+    } catch (e) {
+      console.warn('Add review server error fallback:', e);
+    }
+
+    fallbackReviews.unshift(newRev);
+    return newRev;
+  },
+
+  async voteReviewHelpful(reviewId: string): Promise<{ success: boolean; helpfulCount: number }> {
+    const rev = fallbackReviews.find((r) => r.id === reviewId);
+    if (rev) {
+      rev.helpfulCount = (rev.helpfulCount || 0) + 1;
+      return { success: true, helpfulCount: rev.helpfulCount };
+    }
+    return { success: true, helpfulCount: 1 };
+  },
+
+  // === Saved Addresses API ===
+  async getUserAddresses(userId?: string): Promise<Address[]> {
+    const key = userId || 'default';
+    if (!fallbackAddressesMap[key]) {
+      fallbackAddressesMap[key] = [...(fallbackAddressesMap['default'] || [])];
+    }
+    return fallbackAddressesMap[key];
+  },
+
+  async saveUserAddress(userId: string | undefined, address: Partial<Address>): Promise<Address> {
+    const key = userId || 'default';
+    const list = await this.getUserAddresses(key);
+
+    if (address.isDefault) {
+      list.forEach((a) => (a.isDefault = false));
+    }
+
+    if (address.id) {
+      const idx = list.findIndex((a) => a.id === address.id);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...address } as Address;
+        return list[idx];
+      }
+    }
+
+    const newAddr: Address = {
+      id: `addr-${Date.now()}`,
+      label: address.label || 'Home',
+      isDefault: address.isDefault || list.length === 0,
+      fullName: address.fullName || 'Azeta Blessing',
+      phone: address.phone || '+1 (555) 234-5678',
+      street: address.street || '742 Evergreen Terrace',
+      city: address.city || 'Springfield',
+      state: address.state || 'OR',
+      zip: address.zip || '97477',
+      country: address.country || 'United States',
+    };
+
+    list.unshift(newAddr);
+    fallbackAddressesMap[key] = list;
+    return newAddr;
+  },
+
+  async deleteUserAddress(userId: string | undefined, addressId: string): Promise<boolean> {
+    const key = userId || 'default';
+    const list = await this.getUserAddresses(key);
+    const idx = list.findIndex((a) => a.id === addressId);
+    if (idx !== -1) {
+      list.splice(idx, 1);
+      fallbackAddressesMap[key] = list;
+      return true;
+    }
+    return false;
+  },
+
+  async setDefaultAddress(userId: string | undefined, addressId: string): Promise<boolean> {
+    const key = userId || 'default';
+    const list = await this.getUserAddresses(key);
+    list.forEach((a) => {
+      a.isDefault = a.id === addressId;
+    });
+    fallbackAddressesMap[key] = list;
+    return true;
+  },
+
+  // === Announcement Bar API ===
+  async getAnnouncement(): Promise<AnnouncementConfig> {
+    return this.getAnnouncementConfig();
+  },
+
+  async getAnnouncementConfig(): Promise<AnnouncementConfig> {
+    try {
+      const res = await fetch('/api/announcement');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config) {
+          fallbackAnnouncement = data.config;
+          return data.config;
+        }
+      }
+    } catch (e) {}
+    return { ...fallbackAnnouncement };
+  },
+
+  async updateAnnouncementConfig(config: Partial<AnnouncementConfig>): Promise<AnnouncementConfig> {
+    fallbackAnnouncement = { ...fallbackAnnouncement, ...config };
+    try {
+      await fetch('/api/announcement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fallbackAnnouncement),
+      });
+    } catch (e) {}
+    return { ...fallbackAnnouncement };
+  },
+
+  // === Live Order Tracking API ===
+  async trackOrder(
+    query: string
+  ): Promise<{
+    found: boolean;
+    order?: Order;
+    trackingNumber: string;
+    carrier: string;
+    estimatedDelivery: string;
+    steps: { title: string; date: string; completed: boolean; current: boolean; desc: string }[];
+    error?: string;
+  }> {
+    const cleanQuery = (query || '').trim().toLowerCase();
+    if (!cleanQuery) {
+      return {
+        found: false,
+        trackingNumber: '',
+        carrier: '',
+        estimatedDelivery: '',
+        steps: [],
+        error: 'Please enter an Order ID or Email address.',
+      };
+    }
+
+    const orders = await this.getAdminOrders();
+    const order = orders.find(
+      (o) =>
+        o.orderId.toLowerCase() === cleanQuery ||
+        (o.customer?.email && o.customer.email.toLowerCase() === cleanQuery) ||
+        (o.id && o.id.toLowerCase() === cleanQuery)
+    );
+
+    if (!order) {
+      return {
+        found: false,
+        trackingNumber: '',
+        carrier: '',
+        estimatedDelivery: '',
+        steps: [],
+        error: `No order found matching "${query}". Please check your order reference.`,
+      };
+    }
+
+    // Determine timeline steps based on order status
+    const orderDate = new Date(order.createdAt);
+    const dateStr = orderDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const estDeliveryDate = new Date(orderDate.getTime() + 4 * 86400000).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+
+    const isDelivered = order.status === 'delivered';
+    const isShipped = order.status === 'shipped' || isDelivered;
+    const isProcessing = order.status === 'processing' || isShipped;
+
+    const steps = [
+      {
+        title: 'Order Confirmed',
+        date: dateStr,
+        completed: true,
+        current: order.status === 'pending',
+        desc: 'Payment received and order verified by BlazeStore.',
+      },
+      {
+        title: 'Processing & Packed',
+        date: isProcessing ? 'In Warehouse' : 'Estimated soon',
+        completed: isProcessing,
+        current: order.status === 'processing',
+        desc: 'Items carefully checked, quality inspected, and packaged.',
+      },
+      {
+        title: 'Shipped (In Transit)',
+        date: isShipped ? 'Carrier Hub' : 'Pending dispatch',
+        completed: isShipped,
+        current: order.status === 'shipped',
+        desc: 'Package handed over to FedEx Priority Express.',
+      },
+      {
+        title: 'Delivered',
+        date: isDelivered ? 'Delivered' : `Est. ${estDeliveryDate}`,
+        completed: isDelivered,
+        current: isDelivered,
+        desc: isDelivered ? 'Delivered to front door / mailbox.' : 'Scheduled for destination dropoff.',
+      },
+    ];
+
+    return {
+      found: true,
+      order,
+      trackingNumber: `BLZ-FDX-${order.orderId.replace(/[^0-9]/g, '') || '98402'}`,
+      carrier: 'FedEx Priority International',
+      estimatedDelivery: estDeliveryDate,
+      steps,
+    };
+  },
 };
+
 

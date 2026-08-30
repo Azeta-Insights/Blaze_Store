@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
   Plus,
@@ -14,7 +14,12 @@ import {
   Tag,
   DollarSign,
   Layers,
-  X
+  X,
+  Download,
+  Upload,
+  FileSpreadsheet,
+  Bell,
+  Sparkles
 } from 'lucide-react';
 import { Product, AdminRole } from '../../types';
 import { api } from '../../services/api';
@@ -242,6 +247,128 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     }
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // CSV Export Handler
+  const handleExportCSV = () => {
+    if (products.length === 0) {
+      onShowToast('⚠️ No products available to export.');
+      return;
+    }
+
+    const headers = ['ID', 'Name', 'Category', 'Price', 'StockQuantity', 'SKU', 'InStock', 'Rating', 'Badge', 'CostPrice', 'Description'];
+    const rows = products.map((p) => [
+      p.id,
+      `"${(p.name || '').replace(/"/g, '""')}"`,
+      `"${(p.category || '').replace(/"/g, '""')}"`,
+      p.price,
+      p.stockQuantity ?? 0,
+      `"${(p.sku || '').replace(/"/g, '""')}"`,
+      p.inStock !== false ? 'TRUE' : 'FALSE',
+      p.rating ?? 5,
+      `"${(p.badge || '').replace(/"/g, '""')}"`,
+      p.costPrice ?? 0,
+      `"${(p.description || '').replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `blazestore-products-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    onShowToast(`📥 Exported ${products.length} catalog items to CSV.`);
+  };
+
+  // CSV Import Handler
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        if (!text) return;
+
+        const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+        if (lines.length <= 1) {
+          onShowToast('⚠️ CSV file contains no product rows.');
+          return;
+        }
+
+        let importedCount = 0;
+        const newItems: Product[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map((c) => c.replace(/^"|"$/g, '').trim());
+          if (cols.length >= 4) {
+            const [id, name, category, priceStr, stockStr, sku, inStockStr] = cols;
+            if (name && priceStr) {
+              const itemPrice = parseFloat(priceStr) || 29.99;
+              const itemStock = parseInt(stockStr, 10) || 20;
+              const productObj: Product = {
+                id: id || `imp-${Date.now()}-${i}`,
+                name,
+                category: category || 'General',
+                price: itemPrice,
+                stockQuantity: itemStock,
+                sku: sku || `SKU-IMP-${Math.floor(1000 + Math.random() * 9000)}`,
+                inStock: inStockStr !== 'FALSE' && itemStock > 0,
+                rating: 5,
+                reviewCount: 0,
+                colors: ['#7C6FE0'],
+                image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=80',
+                description: 'Imported product catalog item.',
+              };
+              newItems.push(productObj);
+              importedCount++;
+            }
+          }
+        }
+
+        if (newItems.length > 0) {
+          setProducts((prev) => [...newItems, ...prev]);
+          onShowToast(`🚀 Successfully imported ${importedCount} products from CSV!`);
+        }
+      } catch (err: any) {
+        onShowToast(`❌ Failed to parse CSV: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    // reset input
+    e.target.value = '';
+  };
+
+  // Restock All Low Stock Items in Batch
+  const handleRestockAllLow = async () => {
+    const lowItems = products.filter((p) => (p.stockQuantity ?? 0) <= 10);
+    if (lowItems.length === 0) {
+      onShowToast('✅ All inventory items are sufficiently stocked!');
+      return;
+    }
+
+    setProducts((prev) =>
+      prev.map((p) => {
+        if ((p.stockQuantity ?? 0) <= 10) {
+          return { ...p, stockQuantity: (p.stockQuantity ?? 0) + 30, inStock: true };
+        }
+        return p;
+      })
+    );
+
+    // Persist each in background
+    for (const item of lowItems) {
+      const newStock = (item.stockQuantity ?? 0) + 30;
+      api.updateProductStock(item.id, newStock, true).catch(() => {});
+    }
+
+    onShowToast(`⚡ Batch restocked ${lowItems.length} low-stock items (+30 units each)!`);
+  };
+
   // Filter products by stock alert
   const filteredProducts = products.filter((p) => {
     const qty = p.stockQuantity ?? 0;
@@ -272,7 +399,42 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* CSV Import/Export Buttons */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportCSV}
+            accept=".csv"
+            className="hidden"
+          />
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+              isDarkMode
+                ? 'border-[#27272A] text-[#A1A1AA] hover:bg-[#202024] hover:text-white'
+                : 'border-[#EDEDF2] text-[#52525B] hover:bg-[#FAF9FC] hover:text-[#1F1F23]'
+            }`}
+            title="Import products from a CSV spreadsheet"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            <span>Import CSV</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+              isDarkMode
+                ? 'border-[#27272A] text-[#A1A1AA] hover:bg-[#202024] hover:text-white'
+                : 'border-[#EDEDF2] text-[#52525B] hover:bg-[#FAF9FC] hover:text-[#1F1F23]'
+            }`}
+            title="Download product catalog as CSV"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Export CSV</span>
+          </button>
+
           <button
             onClick={loadInventory}
             className={`p-2 rounded-xl border text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5 transition ${
@@ -286,13 +448,40 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
           <button
             id="add-product-btn"
             onClick={openAddModal}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#A78BFA] to-[#7C6FE0] px-4 py-2 text-xs font-bold text-white shadow-sm shadow-[#7C6FE0]/30 hover:opacity-95 transition"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#A78BFA] to-[#7C6FE0] px-4 py-2 text-xs font-bold text-white shadow-sm shadow-[#7C6FE0]/30 hover:opacity-95 transition cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Add New Product</span>
           </button>
         </div>
       </div>
+
+      {/* Automated Low-Stock Alert Banner */}
+      {lowStockCount > 0 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="font-bold text-xs sm:text-sm">
+                Automated Low-Stock Alert: {lowStockCount} items below threshold (≤10 units)
+              </h4>
+              <p className="text-[11px] opacity-80">
+                Prevent order fulfillment delays by restocking high-demand catalog items immediately.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleRestockAllLow}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer whitespace-nowrap"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Restock All Low Items (+30)</span>
+          </button>
+        </div>
+      )}
 
       {/* Inventory KPI Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">

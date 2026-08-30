@@ -163,3 +163,56 @@ export interface SalesAnalytics {
   categorySales: { name: string; value: number; count: number }[];
   topProducts: { id: string; name: string; salesCount: number; revenue: number; stock: number }[];
 }
+
+export interface Review {
+  id: string;
+  productId: string;
+  userId?: string;
+  userName: string;
+  userEmail: string;
+  rating: number; // 1 to 5
+  title?: string;
+  comment: string;
+  createdAt: string | Date;
+  images?: string[];
+  verifiedPurchase?: boolean;
+  helpfulCount?: number;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number; // percentage (e.g. 15 for 15%) or fixed amount (e.g. 20 for $20)
+  minOrderAmount?: number;
+  maxDiscountAmount?: number;
+  expiryDate?: string;
+  usageLimit?: number;
+  usedCount: number;
+  isActive: boolean;
+  description: string;
+  createdAt: string | Date;
+}
+
+export interface Address {
+  id: string;
+  label: 'Home' | 'Work' | 'Other';
+  isDefault?: boolean;
+  fullName: string;
+  phone: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
+export interface AnnouncementConfig {
+  enabled: boolean;
+  text: string;
+  badge?: string;
+  linkText?: string;
+  linkAction?: string;
+  backgroundColor?: string;
+  textColor?: string;
+}

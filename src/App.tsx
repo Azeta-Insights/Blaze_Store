@@ -42,13 +42,17 @@ import { SupportModal } from './components/SupportModal';
 import { UserProfileMenu } from './components/UserProfileMenu';
 import { HeaderSearchBar } from './components/HeaderSearchBar';
 import { StoreViews } from './components/StoreViews';
+import { AnnouncementBar } from './components/AnnouncementBar';
+import { OrderTrackingModal } from './components/OrderTrackingModal';
+import { InvoiceModal } from './components/InvoiceModal';
+import { AddressBookModal } from './components/AddressBookModal';
 import {
   BEST_DEALS,
   RECOMMENDED_PRODUCTS,
   INITIAL_CART,
   NOTIFICATIONS
 } from './data/mockData';
-import { Product, CartItem, NotificationItem, User } from './types';
+import { Product, CartItem, NotificationItem, User, AnnouncementConfig, Order } from './types';
 import { api, DbStatus } from './services/api';
 
 export default function App() {
@@ -90,6 +94,19 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState<boolean>(false);
   const [isSupportOpen, setIsSupportOpen] = useState<boolean>(false);
+  const [isTrackingOpen, setIsTrackingOpen] = useState<boolean>(false);
+  const [trackingOrderId, setTrackingOrderId] = useState<string>('');
+  const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
+  const [isAddressBookOpen, setIsAddressBookOpen] = useState<boolean>(false);
+
+  // Announcement bar config
+  const [announcementConfig, setAnnouncementConfig] = useState<AnnouncementConfig>({
+    enabled: true,
+    text: '⚡ Summer Mega Sale: Use code SUMMER50 for 50% OFF your entire cart! Free delivery on orders over $50.',
+    linkText: 'Copy SUMMER50',
+    linkAction: 'coupon:SUMMER50',
+    badge: 'FLASH DEAL',
+  });
 
   // Products from MongoDB / Backend
   const [dealsProducts, setDealsProducts] = useState<Product[]>(BEST_DEALS);
@@ -139,19 +156,21 @@ export default function App() {
   useEffect(() => {
     async function initData() {
       try {
-        const [status, fetchedCart, fetchedWishlist, fetchedNotifs, fetchedProducts, fetchedUser] = await Promise.all([
+        const [status, fetchedCart, fetchedWishlist, fetchedNotifs, fetchedProducts, fetchedUser, fetchedAnn] = await Promise.all([
           api.getDbStatus(),
           api.getCart(),
           api.getWishlist(),
           api.getNotifications(),
           api.getProducts(),
           api.getMe(),
+          api.getAnnouncement().catch(() => null),
         ]);
 
         if (status) setDbStatus(status);
         if (fetchedCart && fetchedCart.length > 0) setCart(fetchedCart);
         if (fetchedWishlist && fetchedWishlist.length > 0) setWishlist(fetchedWishlist);
         if (fetchedNotifs && fetchedNotifs.length > 0) setNotifications(fetchedNotifs);
+        if (fetchedAnn) setAnnouncementConfig(fetchedAnn);
         if (fetchedUser) {
           setCurrentUser(fetchedUser);
           // Set landing page based on user role
@@ -566,6 +585,16 @@ export default function App() {
       } ${
         isRightSidebarCollapsed ? 'xl:pr-0' : 'xl:pr-[300px]'
       }`}>
+        {/* Sitewide Promotional Announcement Bar */}
+        <AnnouncementBar
+          config={announcementConfig}
+          onApplyCoupon={(code) => showToast(`🎟️ Copied ${code} to clipboard!`)}
+          onNavigateToDeals={() => {
+            setActiveTab('deals');
+            setSelectedCategory('all');
+          }}
+        />
+
         {/* Mobile Header Bar (< lg) */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#EDEDF2] dark:border-[#27272A] bg-white/95 dark:bg-[#18181B]/95 px-4 py-3 backdrop-blur-md lg:hidden">
           <div className="flex items-center gap-3">
@@ -1075,12 +1104,14 @@ export default function App() {
 
       <QuickViewModal
         product={quickViewProduct}
+        allProducts={allProducts}
         isOpen={!!quickViewProduct}
         onClose={() => setQuickViewProduct(null)}
         onAddToCart={handleAddToCart}
         isWishlisted={quickViewProduct ? isWishlisted(quickViewProduct.id) : false}
         onToggleWishlist={handleToggleWishlist}
         isDarkMode={isDarkMode}
+        onShowToast={showToast}
       />
 
       <CheckoutModal
@@ -1108,6 +1139,26 @@ export default function App() {
         onRemoveFromWishlist={handleToggleWishlist}
         onMoveToCart={(product) => handleAddToCart(product)}
         isDarkMode={isDarkMode}
+      />
+
+      <OrderTrackingModal
+        isOpen={isTrackingOpen}
+        onClose={() => setIsTrackingOpen(false)}
+        initialOrderId={trackingOrderId}
+        onShowToast={showToast}
+      />
+
+      <InvoiceModal
+        order={invoiceOrder}
+        isOpen={!!invoiceOrder}
+        onClose={() => setInvoiceOrder(null)}
+      />
+
+      <AddressBookModal
+        isOpen={isAddressBookOpen}
+        onClose={() => setIsAddressBookOpen(false)}
+        userId={currentUser?.id}
+        onShowToast={showToast}
       />
     </div>
   );
