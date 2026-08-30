@@ -2190,7 +2190,7 @@ export const api = {
       currencySymbol: '₦',
       gateway: 'paystack',
       paystackConfigured: false,
-      publicKey: '',
+      publicKey: 'pk_test_a0d8a57ba8d98d28cfadcae69784f18548981442',
       stripeConfigured: false,
       stripePublishableKey: '',
       supportedMethods: [
@@ -2201,6 +2201,41 @@ export const api = {
         { id: 'cod', name: 'Pay on Delivery (Cash / POS at Door)', enabled: true, live: true },
       ],
     };
+  },
+
+  async getPaystackConfig(): Promise<{
+    success: boolean;
+    configured: boolean;
+    isLive: boolean;
+    mode: 'live' | 'test' | 'sandbox';
+    publicKey: string;
+    hasSecretKey: boolean;
+    maskedSecretKey: string;
+    supportedChannels: string[];
+  }> {
+    try {
+      const res = await safeJsonFetch<any>('/api/paystack/config');
+      if (res && res.success) return res;
+    } catch {}
+    return {
+      success: true,
+      configured: false,
+      isLive: false,
+      mode: 'sandbox',
+      publicKey: 'pk_test_a0d8a57ba8d98d28cfadcae69784f18548981442',
+      hasSecretKey: false,
+      maskedSecretKey: '',
+      supportedChannels: ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer', 'eft'],
+    };
+  },
+
+  async updatePaystackConfig(params: { secretKey?: string; publicKey?: string }): Promise<any> {
+    const res = await fetch('/api/paystack/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return await res.json();
   },
 
   async initializePaystack(params: {

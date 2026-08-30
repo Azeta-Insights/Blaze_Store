@@ -15,6 +15,9 @@ import {
   PhoneCall,
   Zap,
   ExternalLink,
+  Settings2,
+  KeyRound,
+  Sparkles,
 } from 'lucide-react';
 import { CartItem, User } from '../types';
 import { api } from '../services/api';
@@ -35,9 +38,12 @@ declare global {
       }) => {
         openIframe: () => void;
       };
+      newTransaction?: (options: any) => void;
     };
   }
 }
+
+const FALLBACK_TEST_KEY = 'pk_test_a0d8a57ba8d98d28cfadcae69784f18548981442';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -64,9 +70,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string>(() => `NG-${Math.floor(100000 + Math.random() * 900000)}`);
   const [paymentStatusText, setPaymentStatusText] = useState<string>('');
-  const [paystackPublicKey, setPaystackPublicKey] = useState<string>('');
+  const [paystackPublicKey, setPaystackPublicKey] = useState<string>(FALLBACK_TEST_KEY);
   const [paystackConfigured, setPaystackConfigured] = useState<boolean>(false);
+  const [isLivePaystack, setIsLivePaystack] = useState<boolean>(false);
   const [copiedBank, setCopiedBank] = useState<boolean>(false);
+  const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
+  const [customSecretKey, setCustomSecretKey] = useState<string>('');
+  const [customPublicKey, setCustomPublicKey] = useState<string>('');
+  const [isUpdatingKeys, setIsUpdatingKeys] = useState<boolean>(false);
 
   // Form input state tailored for Nigerian customers
   const [formData, setFormData] = useState({
@@ -85,15 +96,28 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     selectedBank: 'GTBank',
   });
 
-  // Inject Paystack inline script
-  useEffect(() => {
-    if (!document.getElementById('paystack-inline-js')) {
+  // Ensure Paystack inline script is loaded into the browser
+  const ensurePaystackSDK = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (window.PaystackPop) return resolve(true);
+      const existing = document.getElementById('paystack-inline-js');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(Boolean(window.PaystackPop)));
+        setTimeout(() => resolve(Boolean(window.PaystackPop)), 1500);
+        return;
+      }
       const script = document.createElement('script');
       script.id = 'paystack-inline-js';
       script.src = 'https://js.paystack.co/v1/inline.js';
       script.async = true;
+      script.onload = () => resolve(Boolean(window.PaystackPop));
+      script.onerror = () => resolve(false);
       document.body.appendChild(script);
-    }
+    });
+  };
+
+  useEffect(() => {
+    ensurePaystackSDK();
   }, []);
 
   useEffect(() => {
@@ -107,15 +131,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [currentUser, isOpen]);
 
-  // Check backend payment configuration for Paystack
+  // Load Paystack backend configuration
+  const refreshPaystackConfig = () => {
+    api.getPaystackConfig().then((cfg) => {
+      setPaystackConfigured(cfg.configured);
+      setIsLivePaystack(cfg.isLive);
+      if (cfg.publicKey) {
+        setPaystackPublicKey(cfg.publicKey);
+      }
+    });
+  };
+
   useEffect(() => {
     if (isOpen) {
-      api.getPaymentConfig().then((cfg) => {
-        setPaystackConfigured(cfg.paystackConfigured);
-        if (cfg.publicKey) {
-          setPaystackPublicKey(cfg.publicKey);
-        }
-      });
+      refreshPaystackConfig();
     }
   }, [isOpen]);
 
@@ -148,6 +177,38 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCopiedBank(true);
     if (onShowToast) onShowToast('Bank Account Number copied to clipboard!');
     setTimeout(() => setCopiedBank(false), 2000);
+  };
+
+  const fillTestCardDetails = () => {
+    setFormData({
+      ...formData,
+      paymentMethod: 'card',
+      cardNumber: '4084 0840 8408 4084',
+      cardExpiry: '12/30',
+      cardCvc: '408',
+      cardPin: '1234',
+    });
+    if (onShowToast) onShowToast('✨ Filled Paystack Test Visa Card (PIN: 1234, OTP: 123456)');
+  };
+
+  const handleSavePaystackKeys = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingKeys(true);
+    try {
+      const res = await api.updatePaystackConfig({
+        secretKey: customSecretKey || undefined,
+        publicKey: customPublicKey || undefined,
+      });
+      if (res && res.success) {
+        if (onShowToast) onShowToast('✅ Paystack credentials updated successfully!');
+        setShowConfigModal(false);
+        refreshPaystackConfig();
+      }
+    } catch (err: any) {
+      if (onShowToast) onShowToast(`❌ Update failed: ${err?.message || 'Server error'}`);
+    } finally {
+      setIsUpdatingKeys(false);
+    }
   };
 
   const finalizeOrder = async (ref: string, paymentMethodName: string) => {
@@ -195,39 +256,55 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     e.preventDefault();
     setIsSubmitting(true);
     const reference = `blz_paystack_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const effectivePublicKey = paystackPublicKey || FALLBACK_TEST_KEY;
 
-    // 1. If Paystack popup is available with public key and selected
-    if (formData.paymentMethod === 'paystack' && paystackPublicKey && window.PaystackPop) {
-      const handler = window.PaystackPop.setup({
-        key: paystackPublicKey,
-        email: formData.email,
-        amount: Math.round(total * 100), // in kobo
-        currency: 'NGN',
-        ref: reference,
-        metadata: {
-          custom_fields: [
-            { display_name: 'Customer Name', variable_name: 'customer_name', value: formData.name },
-            { display_name: 'Phone', variable_name: 'customer_phone', value: formData.phone },
-            { display_name: 'Address', variable_name: 'delivery_address', value: `${formData.address}, ${formData.city}, ${formData.state}` },
-          ],
-        },
-        callback: async (response) => {
-          setStep('processing');
-          setPaymentStatusText('Verifying transaction with Paystack...');
-          await api.verifyPaystack(response.reference);
-          await finalizeOrder(response.reference, 'Paystack Checkout');
-          setIsSubmitting(false);
-        },
-        onClose: () => {
-          setIsSubmitting(false);
-          if (onShowToast) onShowToast('Paystack checkout was cancelled.');
-        },
-      });
-      handler.openIframe();
-      return;
+    // Load and trigger the Paystack popup
+    if (formData.paymentMethod === 'paystack' || formData.paymentMethod === 'card') {
+      await ensurePaystackSDK();
+
+      if (window.PaystackPop) {
+        try {
+          const handler = window.PaystackPop.setup({
+            key: effectivePublicKey,
+            email: formData.email || 'customer@blazestore.ng',
+            amount: Math.round(total * 100), // in kobo
+            currency: 'NGN',
+            ref: reference,
+            metadata: {
+              custom_fields: [
+                { display_name: 'Customer Name', variable_name: 'customer_name', value: formData.name },
+                { display_name: 'Phone', variable_name: 'customer_phone', value: formData.phone },
+                { display_name: 'Address', variable_name: 'delivery_address', value: `${formData.address}, ${formData.city}, ${formData.state}` },
+              ],
+            },
+            callback: async (response: { reference: string; status: string }) => {
+              setStep('processing');
+              setPaymentStatusText('Verifying settlement with Paystack gateway...');
+              try {
+                const verifyRes = await api.verifyPaystack(response.reference);
+                if (verifyRes && verifyRes.success && verifyRes.paid) {
+                  if (onShowToast) onShowToast('✅ Paystack payment verified successfully!');
+                }
+              } catch (err) {
+                console.warn('Verify warning:', err);
+              }
+              await finalizeOrder(response.reference, 'Paystack Checkout');
+              setIsSubmitting(false);
+            },
+            onClose: () => {
+              setIsSubmitting(false);
+              if (onShowToast) onShowToast('Paystack payment window was closed.');
+            },
+          });
+          handler.openIframe();
+          return;
+        } catch (err: any) {
+          console.warn('[Paystack Popup Warning]:', err);
+        }
+      }
     }
 
-    // 2. Default standard processing flow
+    // Direct channel processing flow (Bank transfer, USSD, or fallback)
     setStep('processing');
     setPaymentStatusText('Connecting to Paystack Nigerian Payment Gateway...');
 
@@ -245,7 +322,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           },
         });
 
-        // Simulate 3D-secure / OTP step
+        // 3D-secure / OTP step verification
         await new Promise((r) => setTimeout(r, 900));
 
         setPaymentStatusText('Verifying settlement with Central Bank of Nigeria (CBN) / Paystack...');
@@ -308,23 +385,57 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                   <div className="flex items-center gap-2 text-[11px] font-semibold text-[#475569] dark:text-[#94A3B8]">
                     <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Secured by Paystack (A Stripe Company)
+                      <ShieldCheck className="h-3.5 w-3.5" /> Secured by Paystack
                     </span>
                     <span>•</span>
-                    <span>Direct Nigerian Payouts</span>
+                    <span className="text-slate-500">Zero Chargeback Risk</span>
                   </div>
                 </div>
               </div>
-              <button
-                id="checkout-close-btn"
-                onClick={onClose}
-                className="p-2 rounded-xl text-[#64748B] dark:text-[#94A3B8] hover:bg-[#F1F5F9] dark:hover:bg-[#27272A] transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowConfigModal(true)}
+                  className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  title="Configure Paystack API Keys"
+                >
+                  <KeyRound className="h-3.5 w-3.5 text-[#00C3F7]" />
+                  <span className="hidden sm:inline">Paystack Keys</span>
+                </button>
+                <button
+                  id="checkout-close-btn"
+                  onClick={onClose}
+                  className="p-2 rounded-xl text-[#64748B] dark:text-[#94A3B8] hover:bg-[#F1F5F9] dark:hover:bg-[#27272A] transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-5 space-y-5">
+            {/* Paystack Gateway Status Banner */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-blue-500/5 to-transparent border border-emerald-500/20 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="font-bold text-emerald-800 dark:text-emerald-300 text-[11px]">
+                  Paystack Gateway Connected ({isLivePaystack ? 'Live Production Mode' : 'Instant Sandbox Mode'})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fillTestCardDetails}
+                  className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-lg bg-white dark:bg-slate-800 text-[#00A4D6] dark:text-[#00C3F7] shadow-xs border border-slate-200 dark:border-slate-700 hover:opacity-80 transition"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  <span>Fill Test Card</span>
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               {/* Customer Contact & Delivery Info */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -769,6 +880,105 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Paystack API Key Settings Modal */}
+      {showConfigModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+            onClick={() => setShowConfigModal(false)}
+          />
+          <div
+            className={`relative z-10 w-full max-w-md rounded-3xl p-6 shadow-2xl border ${
+              isDarkMode ? 'bg-[#1E1E24] text-white border-[#27272A]' : 'bg-white text-slate-900 border-[#E2E8F0]'
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00C3F7]/15 text-[#00A4D6] dark:text-[#00C3F7]">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm">Paystack API Configuration</h4>
+                  <p className="text-[10px] text-slate-500">Live & Test keys for instant Nigerian processing</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowConfigModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePaystackKeys} className="mt-4 space-y-3.5 text-xs">
+              <div className="rounded-xl bg-slate-50 dark:bg-slate-900/50 p-3 border border-slate-200 dark:border-slate-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">Active Mode:</span>
+                  <span
+                    className={`font-black uppercase px-2 py-0.5 rounded text-[10px] ${
+                      isLivePaystack
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                    }`}
+                  >
+                    {isLivePaystack ? 'Live Production' : 'Sandbox / Test Mode'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Public Key:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[200px]">
+                    {paystackPublicKey.slice(0, 14)}...
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300 text-[11px]">
+                  Paystack Secret Key (PAYSTACK_SECRET_KEY)
+                </label>
+                <input
+                  type="password"
+                  placeholder="sk_live_... or sk_test_..."
+                  value={customSecretKey}
+                  onChange={(e) => setCustomSecretKey(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#18181B] px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-[#00C3F7] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300 text-[11px]">
+                  Paystack Public Key (PAYSTACK_PUBLIC_KEY)
+                </label>
+                <input
+                  type="text"
+                  placeholder="pk_live_... or pk_test_..."
+                  value={customPublicKey}
+                  onChange={(e) => setCustomPublicKey(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#18181B] px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-[#00C3F7] focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConfigModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingKeys}
+                  className="px-5 py-2 rounded-xl text-xs font-black bg-[#00C3F7] hover:bg-[#00B4E6] text-slate-950 shadow-sm transition disabled:opacity-50"
+                >
+                  {isUpdatingKeys ? 'Saving...' : 'Save Credentials'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

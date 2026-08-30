@@ -37,20 +37,60 @@ interface PaystackVerifyResult {
   error?: string;
 }
 
+// Default public test key for Paystack Sandbox & Demo verification
+const FALLBACK_PAYSTACK_PUBLIC_KEY = 'pk_test_a0d8a57ba8d98d28cfadcae69784f18548981442';
+
+let runtimePaystackSecretKey: string = '';
+let runtimePaystackPublicKey: string = '';
+
 export function isPaystackConfigured(): boolean {
-  return !!(process.env.PAYSTACK_SECRET_KEY && process.env.PAYSTACK_SECRET_KEY.trim() !== '');
+  const key = getPaystackSecretKey();
+  return !!(key && key.trim() !== '' && key.startsWith('sk_'));
+}
+
+export function isPaystackLive(): boolean {
+  const secret = getPaystackSecretKey();
+  const pub = getPaystackPublicKey();
+  return secret.startsWith('sk_live_') || pub.startsWith('pk_live_');
 }
 
 export function getPaystackPublicKey(): string {
   return (
+    runtimePaystackPublicKey ||
     process.env.PAYSTACK_PUBLIC_KEY ||
     process.env.VITE_PAYSTACK_PUBLIC_KEY ||
-    ''
+    FALLBACK_PAYSTACK_PUBLIC_KEY
   ).trim();
 }
 
 export function getPaystackSecretKey(): string {
-  return (process.env.PAYSTACK_SECRET_KEY || '').trim();
+  return (
+    runtimePaystackSecretKey ||
+    process.env.PAYSTACK_SECRET_KEY ||
+    ''
+  ).trim();
+}
+
+export function setRuntimePaystackKeys(secretKey?: string, publicKey?: string) {
+  if (secretKey !== undefined) runtimePaystackSecretKey = secretKey.trim();
+  if (publicKey !== undefined) runtimePaystackPublicKey = publicKey.trim();
+}
+
+export function getPaystackFullConfig() {
+  const secretKey = getPaystackSecretKey();
+  const publicKey = getPaystackPublicKey();
+  const configured = isPaystackConfigured();
+  const isLive = isPaystackLive();
+
+  return {
+    configured,
+    isLive,
+    mode: isLive ? 'live' : configured ? 'test' : 'sandbox',
+    publicKey,
+    hasSecretKey: Boolean(secretKey),
+    maskedSecretKey: secretKey ? `${secretKey.substring(0, 7)}...${secretKey.substring(secretKey.length - 4)}` : '',
+    supportedChannels: ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer', 'eft'],
+  };
 }
 
 /**

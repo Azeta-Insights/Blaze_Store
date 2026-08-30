@@ -55,7 +55,10 @@ import {
 } from './stripe';
 import {
   isPaystackConfigured,
+  isPaystackLive,
   getPaystackPublicKey,
+  getPaystackFullConfig,
+  setRuntimePaystackKeys,
   initializePaystackTransaction,
   verifyPaystackTransaction,
   verifyPaystackWebhookSignature,
@@ -133,7 +136,9 @@ export function createApp() {
         currencySymbol: '₦',
         gateway: 'paystack',
         paystackConfigured: isPaystackConfigured(),
+        isPaystackLive: isPaystackLive(),
         publicKey: getPaystackPublicKey(),
+        paystackFullConfig: getPaystackFullConfig(),
         stripeConfigured: isStripeConfigured(),
         stripePublishableKey: getStripePublishableKey(),
         supportedMethods: [
@@ -320,7 +325,9 @@ export function createApp() {
       currencySymbol: '₦',
       gateway: 'paystack',
       paystackConfigured: isPaystackConfigured(),
+      isPaystackLive: isPaystackLive(),
       publicKey: getPaystackPublicKey(),
+      paystackFullConfig: getPaystackFullConfig(),
       stripeConfigured: isStripeConfigured(),
       stripePublishableKey: getStripePublishableKey(),
       supportedMethods: [
@@ -331,6 +338,28 @@ export function createApp() {
         { id: 'cod', name: 'Pay on Delivery (Cash / POS at Door)', enabled: true, live: true },
       ],
     });
+  });
+
+  // Paystack Configuration Management
+  apiRouter.get('/paystack/config', (req, res) => {
+    res.json({
+      success: true,
+      ...getPaystackFullConfig(),
+    });
+  });
+
+  apiRouter.post('/paystack/config', (req, res) => {
+    try {
+      const { secretKey, publicKey } = req.body || {};
+      setRuntimePaystackKeys(secretKey, publicKey);
+      res.json({
+        success: true,
+        message: 'Paystack configuration updated successfully',
+        ...getPaystackFullConfig(),
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message || 'Failed to update Paystack config' });
+    }
   });
 
   // Paystack Initialize Route

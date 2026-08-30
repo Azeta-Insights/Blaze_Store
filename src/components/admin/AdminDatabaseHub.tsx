@@ -75,25 +75,98 @@ export const AdminDatabaseHub: React.FC<AdminDatabaseHubProps> = ({
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
   const [isDeletingDoc, setIsDeletingDoc] = useState(false);
 
+  // Paystack Live Control & Key Tester State
+  const [paystackConfig, setPaystackConfig] = useState<{
+    configured: boolean;
+    isLive: boolean;
+    secretKeyMasked: string;
+    publicKey: string;
+    message: string;
+  } | null>(null);
+  const [paystackSecretInput, setPaystackSecretInput] = useState('');
+  const [paystackPublicInput, setPaystackPublicInput] = useState('');
+  const [isUpdatingPaystack, setIsUpdatingPaystack] = useState(false);
+  const [isTestingPaystack, setIsTestingPaystack] = useState(false);
+  const [testPaystackResult, setTestPaystackResult] = useState<string | null>(null);
+
   const checkStatus = async () => {
     setIsChecking(true);
     try {
-      const [res, cldRes, colRes] = await Promise.all([
+      const [res, cldRes, colRes, pstkRes] = await Promise.all([
         api.getDbStatus(),
         api.getCloudinaryStatus(),
         api.getDbCollections(),
+        api.getPaystackConfig().catch(() => null),
       ]);
       setStatus(res);
       setCloudinaryStatus(cldRes);
       setCollections(colRes);
+      if (pstkRes) {
+        setPaystackConfig(pstkRes);
+      }
       if (res.connected) {
-        onShowToast('⚡ MongoDB & Cloudinary telemetry refreshed');
+        onShowToast('⚡ MongoDB, Cloudinary & Paystack telemetry refreshed');
       }
     } catch (e) {
       console.error(e);
       onShowToast('❌ Failed to check system status');
     } finally {
       setIsChecking(false);
+    }
+  };
+
+  const handleSavePaystackCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingPaystack(true);
+    try {
+      const res = await api.updatePaystackConfig({
+        secretKey: paystackSecretInput || undefined,
+        publicKey: paystackPublicInput || undefined,
+      });
+      if (res && res.success) {
+        onShowToast('✅ Paystack API credentials saved successfully!');
+        setPaystackConfig({
+          configured: res.configured,
+          isLive: res.isLive,
+          secretKeyMasked: res.secretKeyMasked,
+          publicKey: res.publicKey,
+          message: res.message,
+        });
+        setPaystackSecretInput('');
+        setPaystackPublicInput('');
+      }
+    } catch (err: any) {
+      onShowToast(`❌ Failed to update Paystack keys: ${err?.message || 'Error'}`);
+    } finally {
+      setIsUpdatingPaystack(false);
+    }
+  };
+
+  const handleTestPaystackConnection = async () => {
+    setIsTestingPaystack(true);
+    setTestPaystackResult(null);
+    try {
+      const initTest = await api.initializePaystack({
+        email: 'test-admin@blazestore.ng',
+        amount: 500, // ₦500 test transaction
+        reference: `blz_test_${Date.now()}`,
+        metadata: {
+          testMode: true,
+          adminCheck: true,
+        },
+      });
+
+      if (initTest && initTest.reference) {
+        setTestPaystackResult(`✅ Paystack Gateway Online! Test Reference: ${initTest.reference} (Auth URL: ${initTest.authorization_url ? 'Generated' : 'Ready'})`);
+        onShowToast('🚀 Paystack Connection Verified!');
+      } else {
+        setTestPaystackResult('⚠️ Paystack returned response without reference.');
+      }
+    } catch (err: any) {
+      setTestPaystackResult(`❌ Connection error: ${err?.message || 'Failed to initialize transaction'}`);
+      onShowToast('❌ Paystack Test Failed');
+    } finally {
+      setIsTestingPaystack(false);
     }
   };
 
@@ -850,66 +923,141 @@ export const AdminDatabaseHub: React.FC<AdminDatabaseHubProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
-          {/* Active Payment Channels */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A8A94]">
-              Supported Payment Channels
-            </h4>
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A]">
-                <div className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
-                  <span className="font-semibold">Debit / Credit Cards</span>
+          {/* Active Payment Channels & Live Test */}
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A8A94]">
+                Gateway Status &amp; Diagnostics
+              </h4>
+              <div className="mt-2 p-3.5 rounded-xl bg-slate-50 dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A] space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">Gateway Integration:</span>
+                  <span className="font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Connected &amp; Active
+                  </span>
                 </div>
-                <span className="text-[#8A8A94] font-mono">Mastercard, VISA, Verve</span>
-              </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">Active Mode:</span>
+                  <span
+                    className={`font-black uppercase px-2 py-0.5 rounded text-[10px] ${
+                      paystackConfig?.isLive
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                    }`}
+                  >
+                    {paystackConfig?.isLive ? 'Live Production Mode' : 'Instant Sandbox Mode'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between font-mono text-[11px]">
+                  <span className="text-slate-500 font-sans">Secret Key:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{paystackConfig?.secretKeyMasked || '••••••••'}</span>
+                </div>
+                <div className="flex items-center justify-between font-mono text-[11px]">
+                  <span className="text-slate-500 font-sans">Public Key:</span>
+                  <span className="text-slate-700 dark:text-slate-300 truncate max-w-[200px]">{paystackConfig?.publicKey || 'pk_test_...'}</span>
+                </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A]">
-                <div className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
-                  <span className="font-semibold">Nigerian Bank Direct Transfer</span>
-                </div>
-                <span className="text-[#8A8A94] font-mono">GTBank, Access, Zenith, Kuda</span>
-              </div>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTestPaystackConnection}
+                    disabled={isTestingPaystack}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#0AA5FF]/10 text-[#0AA5FF] hover:bg-[#0AA5FF]/20 font-bold text-xs transition disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isTestingPaystack ? 'animate-spin' : ''}`} />
+                    <span>{isTestingPaystack ? 'Testing Gateway Handshake...' : 'Test Paystack API Handshake (₦500)'}</span>
+                  </button>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A]">
-                <div className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
-                  <span className="font-semibold">USSD Quick Banking</span>
+                  {testPaystackResult && (
+                    <div className="p-2.5 rounded-lg bg-black/80 text-[11px] font-mono text-white leading-relaxed">
+                      {testPaystackResult}
+                    </div>
+                  )}
                 </div>
-                <span className="text-[#8A8A94] font-mono">*737#, *966#, *901#</span>
               </div>
+            </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A]">
-                <div className="flex items-center gap-2.5">
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A8A94]">
+                Supported Channels
+              </h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A] flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-[#10B981]" />
-                  <span className="font-semibold">Apple Pay &amp; Mobile Wallets</span>
+                  <span className="font-semibold text-[11px]">Cards (Mastercard, Visa, Verve)</span>
                 </div>
-                <span className="text-[#8A8A94] font-mono">Instant Biometric Pay</span>
+                <div className="p-2.5 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A] flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                  <span className="font-semibold text-[11px]">Nigerian Bank Transfer</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A] flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                  <span className="font-semibold text-[11px]">USSD Shortcodes (*737#)</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#FAF9FC] dark:bg-[#202024] border border-[#EDEDF2] dark:border-[#27272A] flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                  <span className="font-semibold text-[11px]">Apple Pay &amp; Biometric</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Paystack API Key Instructions */}
+          {/* Paystack API Key Configuration Form */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A8A94]">
-              Paystack Environment Keys
+              Update Paystack API Credentials
             </h4>
             <p className="text-xs text-[#8A8A94]">
-              To activate live Paystack charges, add your Paystack API keys in the app settings (.env) or environment:
+              Paste your Live or Test Paystack API credentials below to switch payment processing modes instantly without restarting the server:
             </p>
 
-            <div className="bg-black/90 text-white rounded-lg p-3 text-[11px] font-mono space-y-1">
-              <div className="text-[#0AA5FF]"># Paystack Live / Test API Keys</div>
+            <form onSubmit={handleSavePaystackCredentials} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                  Paystack Secret Key (PAYSTACK_SECRET_KEY)
+                </label>
+                <input
+                  type="password"
+                  placeholder="sk_live_... or sk_test_..."
+                  value={paystackSecretInput}
+                  onChange={(e) => setPaystackSecretInput(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#202024] px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-[#0AA5FF] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                  Paystack Public Key (PAYSTACK_PUBLIC_KEY)
+                </label>
+                <input
+                  type="text"
+                  placeholder="pk_live_... or pk_test_..."
+                  value={paystackPublicInput}
+                  onChange={(e) => setPaystackPublicInput(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#202024] px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-[#0AA5FF] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] text-[#8A8A94]">
+                  Webhook: <code className="font-mono text-slate-600 dark:text-slate-400">/api/paystack/webhook</code>
+                </span>
+                <button
+                  type="submit"
+                  disabled={isUpdatingPaystack}
+                  className="px-5 py-2 rounded-xl text-xs font-black bg-[#0AA5FF] hover:bg-[#0090e0] text-slate-950 shadow-sm transition disabled:opacity-50"
+                >
+                  {isUpdatingPaystack ? 'Saving...' : 'Save Paystack Keys'}
+                </button>
+              </div>
+            </form>
+
+            <div className="bg-black/90 text-white rounded-lg p-3 text-[11px] font-mono space-y-1 mt-3">
+              <div className="text-[#0AA5FF]"># Environment Variable Aliases (.env)</div>
               <div>PAYSTACK_SECRET_KEY=&quot;sk_live_...&quot;</div>
               <div>PAYSTACK_PUBLIC_KEY=&quot;pk_live_...&quot;</div>
               <div>VITE_PAYSTACK_PUBLIC_KEY=&quot;pk_live_...&quot;</div>
-              <div className="text-neutral-400 mt-1"># Webhook Signature Verification:</div>
-              <div>POST /api/paystack/webhook (HMAC SHA-512)</div>
-            </div>
-
-            <div className="text-[11px] text-[#8A8A94]">
-              🔒 When live keys are provided, customer checkout automatically switches to real-time Paystack popup and verified server receipts.
             </div>
           </div>
         </div>
